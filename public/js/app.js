@@ -471,12 +471,34 @@ function dailyCard(m) {
 // Chọn câu cho hôm nay (không lặp lại các câu đã giao trong ngày) rồi bắt đầu lượt.
 function startDaily(m) {
   const plan = dailyPlan(m);
-  const all = modQuestions(m).filter(q => inPool(q, modPool(m))).map(q => q.id);
-  let exclude = plan ? plan.ids : [];
-  let ids = window.Scoring.pickDaily({ questionIds: all, qstats: profile.qstats, n: dailyN(), exclude });
-  if (!ids.length) { exclude = []; ids = window.Scoring.pickDaily({ questionIds: all, qstats: profile.qstats, n: dailyN() }); }
+  const done = plan ? plan.ids : [];
+  let ids;
+  if (isReading(m)) {
+    // Reading chọn theo bài đọc (mỗi bài 4 câu): bài có câu sai → sai, còn câu chưa làm → mới,
+    // còn lại → đã biết, xếp theo lần ôn gần nhất.
+    const passages = modPassages(m).map(p => p.id).filter(p => passageQuestionIds(p).length);
+    const stats = {};
+    passages.forEach(p => {
+      const st = passageQuestionIds(p).map(id => qstat(id));
+      stats[p] = {
+        last: !st.some(s => s && s.last === false),
+        a: st.every(s => s && s.a) ? 1 : 0,
+        at: Math.max(0, ...st.map(s => (s && s.at) || 0))
+      };
+    });
+    const n = Math.max(1, Math.round(dailyN() / 4));
+    const skip = [...new Set(done.filter(id => Q_BY_ID[id]).map(id => Q_BY_ID[id].passage))];
+    let picked = window.Scoring.pickDaily({ questionIds: passages, qstats: stats, n, exclude: skip });
+    if (!picked.length) picked = window.Scoring.pickDaily({ questionIds: passages, qstats: stats, n });
+    ids = picked.flatMap(passageQuestionIds);
+  } else {
+    const all = modQuestions(m).filter(q => inPool(q, modPool(m))).map(q => q.id);
+    ids = window.Scoring.pickDaily({ questionIds: all, qstats: profile.qstats, n: dailyN(), exclude: done });
+    if (!ids.length) ids = window.Scoring.pickDaily({ questionIds: all, qstats: profile.qstats, n: dailyN() });
+  }
   if (!ids.length) return;
-  local.daily[m] = { uid: sessionOwner(), date: todayKey(), ids: exclude.concat(ids) };
+  const fresh = ids.some(id => !done.includes(id));
+  local.daily[m] = { uid: sessionOwner(), date: todayKey(), ids: (fresh ? done : []).concat(ids) };
   startSession(m, 'daily', ids);
 }
 
@@ -615,16 +637,11 @@ function bindPracticeSetup(m) {
   }));
 }
 
-// Câu Reading: gom các câu cùng bài đọc lại với nhau (theo số câu), giữ thứ tự bài xuất hiện;
-// shuffled: xáo thứ tự các bài.
+// Câu Reading luôn làm theo cả bài đọc: bài nào có câu trong lượt thì lấy đủ mọi câu của bài đó
+// (theo số câu), giữ thứ tự bài xuất hiện; shuffled: xáo thứ tự các bài.
+const passageQuestionIds = p => QUESTIONS.filter(q => q.passage === p).sort((a, b) => a.num - b.num).map(q => q.id);
 function groupByPassage(ids, shuffled) {
-  const groups = new Map();
-  ids.forEach(id => {
-    const p = Q_BY_ID[id].passage;
-    if (!groups.has(p)) groups.set(p, []);
-    groups.get(p).push(id);
-  });
-  const list = [...groups.values()].map(g => g.sort((a, b) => Q_BY_ID[a].num - Q_BY_ID[b].num));
+  const list = [...new Set(ids.map(id => Q_BY_ID[id].passage))].map(passageQuestionIds);
   return (shuffled ? shuffle(list) : list).flat();
 }
 
