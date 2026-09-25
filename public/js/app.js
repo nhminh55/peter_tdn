@@ -27,7 +27,8 @@ const STORAGE_KEY = 'tdn-english-v2';
 
 function localDefaults() {
   // daily: bộ câu "Luyện mỗi ngày" đã giao hôm nay { uid, date, ids }
-  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10 }, session: null, guestProfile: null, daily: null };
+  // pool: nguồn câu khi luyện — 'book' (trong sách) | 'gen' (tự soạn) | 'all'
+  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10, pool: 'all' }, session: null, guestProfile: null, daily: null };
 }
 
 let storageOk = true;
@@ -92,6 +93,12 @@ const pct = (c, a) => a ? Math.round(c * 100 / a) : 0;
 const countWords = text => String(text).trim().split(/\s+/).filter(w => /[\wÀ-ỹ]/.test(w)).length;
 const sourceLabel = source => source.map(s => (s.gen ? '[gen]' : t('src_item', { b: s.book, d: s.test }))).join(' | ');
 const questionsForTopic = id => QUESTIONS.filter(q => q.topics.includes(id));
+const POOLS = ['book', 'gen', 'all'];
+const pool = () => (POOLS.includes(local.settings.pool) ? local.settings.pool : 'all');
+const isGen = q => q.source.some(s => s.gen);
+const inPool = (q, p = pool()) => p === 'all' || (p === 'gen') === isGen(q);
+const poolQuestions = (p = pool()) => QUESTIONS.filter(q => inPool(q, p));
+const poolTopic = id => questionsForTopic(id).filter(q => inPool(q));
 const qstat = id => (profile.qstats || {})[id];
 const wrongIds = () => QUESTIONS.filter(q => qstat(q.id) && qstat(q.id).last === false).map(q => q.id);
 const cuesHtml = cues => cues.replace(/\s*\/\/\s*$/, '').split('/').map(c => `<span class="cue">${esc(c.trim())}</span>`).join('<span class="slash">/</span>');
@@ -104,12 +111,13 @@ function totals() {
 
 function sessionLabel(s) {
   const k = s.kind || {};
-  if (k.mode === 'topic') return t('label_topic', { t: topicTitle(k.value) });
+  const from = k.pool && k.pool !== 'all' ? ` · ${t('pool_' + k.pool)}` : '';
+  if (k.mode === 'topic') return t('label_topic', { t: topicTitle(k.value) }) + from;
   if (k.mode === 'exam') { const [b, d] = k.value.split('-'); return t('exam', { b, d }); }
   if (k.mode === 'wrong') return t('label_wrong');
   if (k.mode === 'retry') return t('label_retry');
-  if (k.mode === 'daily') return t('label_daily');
-  return t('label_all');
+  if (k.mode === 'daily') return t('label_daily') + from;
+  return t('label_all') + from;
 }
 
 /* ---------- Khung trang ---------- */
@@ -300,7 +308,7 @@ function viewLesson(id) {
       ${next ? `<a class="btn ghost" href="#/writing/learn/${next.id}">${lessonLocked(idx + 1) ? '🔒 ' : ''}${esc(lessonText(next).title)} →</a>` : '<span></span>'}
     </nav>`);
   const btn = $('#practice-topic');
-  if (btn) btn.addEventListener('click', () => startSession('topic', id));
+  if (btn) btn.addEventListener('click', () => startSession('topic', id, 'all'));
 }
 
 /* ---------- Luyện mỗi ngày ---------- */
@@ -325,8 +333,8 @@ function dailyCard() {
     && s.kind.value === todayKey() && s.i < s.ids.length;
   const plan = dailyPlan();
   const today = todayStats();
-  const wrong = wrongIds().length;
-  const fresh = QUESTIONS.filter(q => !qstat(q.id) || !qstat(q.id).a).length;
+  const wrong = wrongIds().filter(id => inPool(Q_BY_ID[id])).length;
+  const fresh = poolQuestions().filter(q => !qstat(q.id) || !qstat(q.id).a).length;
   let status = '', btn;
   if (running) {
     status = t('daily_running', { i: s.results.length, n: s.ids.length });
@@ -352,7 +360,7 @@ function dailyCard() {
 // Chọn câu cho hôm nay (không lặp lại các câu đã giao trong ngày) rồi bắt đầu lượt.
 function startDaily() {
   const plan = dailyPlan();
-  const all = QUESTIONS.map(q => q.id);
+  const all = poolQuestions().map(q => q.id);
   let exclude = plan ? plan.ids : [];
   let ids = window.Scoring.pickDaily({ questionIds: all, qstats: profile.qstats, n: dailyN(), exclude });
   if (!ids.length) { exclude = []; ids = window.Scoring.pickDaily({ questionIds: all, qstats: profile.qstats, n: dailyN() }); }
@@ -367,8 +375,15 @@ function viewPracticeSetup() {
   const s = local.session;
   const unfinished = s && s.i < s.ids.length;
   const wrong = wrongIds().length;
-  const topicOptions = LESSONS.filter(l => questionsForTopic(l.id).length)
-    .map(l => `<option value="${l.id}">${esc(t('topic_option', { title: lessonText(l).title, n: questionsForTopic(l.id).length }))}</option>`).join('');
+  const topicOptions = LESSONS.filter(l => poolTopic(l.id).length)
+    .map(l => `<option value="${l.id}">${esc(t('topic_option', { title: lessonText(l).title, n: poolTopic(l.id).length }))}</option>`).join('');
+  const poolSwitch = `
+    <section class="pool">
+      <span class="pool-label">${t('pool_label')}</span>
+      <div class="pool-opts" role="group" aria-label="${t('pool_label')}">
+        ${POOLS.map(p => `<button type="button" data-pool="${p}" class="${pool() === p ? 'active' : ''}" aria-pressed="${pool() === p}">${t('pool_' + p)} <small>${poolQuestions(p).length}</small></button>`).join('')}
+      </div>
+    </section>`;
   const options = `
     <section class="options">
       <label class="opt"><input type="checkbox" id="opt-random" ${local.settings.order === 'random' ? 'checked' : ''}> ${t('opt_random')}</label>
@@ -420,11 +435,12 @@ function viewPracticeSetup() {
 
   page(`
     ${head}
+    ${poolSwitch}
     ${dailyCard()}
     <section class="setup-grid">
       <div class="setup-card">
-        <h3>${t('setup_all')}</h3>
-        <p>${t('setup_all_desc', { n: QUESTIONS.length, g: QUESTIONS.filter(q => q.source.some(x => x.gen)).length })}</p>
+        <h3>${t('setup_all_' + pool())}</h3>
+        <p>${t('setup_all_desc_' + pool(), { n: poolQuestions().length, b: poolQuestions('book').length, g: poolQuestions('gen').length })}</p>
         <button class="btn primary" data-mode="all">${t('start')}</button>
       </div>
       <div class="setup-card">
@@ -432,11 +448,11 @@ function viewPracticeSetup() {
         <select id="sel-topic">${topicOptions}</select>
         <button class="btn primary" data-mode="topic">${t('start')}</button>
       </div>
-      <div class="setup-card">
+      ${pool() === 'gen' ? '' : `<div class="setup-card">
         <h3>${t('setup_exam')}</h3>
         <select id="sel-exam">${examOptions}</select>
         <button class="btn primary" data-mode="exam">${t('setup_exam_btn')}</button>
-      </div>
+      </div>`}
       ${wrongCard}
     </section>
     ${options}`);
@@ -457,6 +473,12 @@ function bindPracticeSetup() {
     });
     nInput.addEventListener('change', () => { nInput.value = dailyN(); });
   }
+  $$('[data-pool]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.pool === pool()) return;
+    local.settings.pool = b.dataset.pool;
+    saveLocal();
+    viewPracticeSetup();
+  }));
   const daily = $('#daily-start');
   if (daily) daily.addEventListener('click', startDaily);
   $$('[data-mode]').forEach(b => b.addEventListener('click', () => {
@@ -468,21 +490,24 @@ function bindPracticeSetup() {
 }
 
 // Mỗi lượt gắn với một bộ đề (exams); ôn câu sai dùng bộ 'all' (chứa mọi câu).
-function startSession(mode, value) {
+// poolOverride: bỏ qua nguồn câu đang chọn (vd. luyện chủ điểm từ trang bài học → mọi câu).
+function startSession(mode, value, poolOverride) {
   let examId, ids;
+  // Chọn theo nguồn câu (sách / tự soạn) cho lượt tất cả, chủ điểm và luyện mỗi ngày.
+  const p = poolOverride || (!guest && ['all', 'topic', 'daily'].includes(mode || 'all') ? pool() : 'all');
   if (mode === 'topic') { examId = 'topic-' + value; ids = (EXAMS[examId] || {}).questionIds || questionsForTopic(value).map(q => q.id); }
   else if (mode === 'exam') { const [b, d] = value.split('-'); examId = examKey(b, d); ids = (EXAMS[examId] || {}).questionIds || []; }
   else if (mode === 'wrong') { examId = 'all'; ids = wrongIds(); }
   else if (mode === 'retry') { examId = 'all'; ids = value; }
   else if (mode === 'daily') { examId = 'all'; ids = value; value = todayKey(); }
   else { mode = 'all'; examId = 'all'; ids = (EXAMS.all || {}).questionIds || QUESTIONS.map(q => q.id); }
-  ids = ids.filter(id => Q_BY_ID[id]);
+  ids = ids.filter(id => Q_BY_ID[id] && inPool(Q_BY_ID[id], p));
   if (!ids.length) return;
   if (guest) examId = 'trial';
   if (local.settings.order === 'random' && mode !== 'exam' && mode !== 'daily') ids = shuffle(ids);
   local.session = {
     uid: sessionOwner(),
-    kind: { mode, value: mode === 'retry' ? null : value },
+    kind: { mode, value: mode === 'retry' ? null : value, pool: p },
     examId, ids, i: 0, results: [], starsEarned: 0, submissionId: null, pending: null, guestSub: null
   };
   saveLocal();
