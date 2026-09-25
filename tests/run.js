@@ -99,6 +99,33 @@ test('strict mode: content right but form wrong is not correct', () => {
   assert.deepStrictEqual(out.result.issues.map(i => i.code), ['cap', 'dot']);
 });
 
+test('adding meaning words outside the cues is wrong and reported as extra', () => {
+  [
+    ['w15', 'She usually visits her grandparents twice a month.', ['usually']],
+    ['w28', 'Minh is very good at playing chess.', ['very']],
+    ['w03', 'Could you please show me the way to the post office?', ['please']],
+    ['w04', 'My grandfather is watering his flowers at the moment.', null]
+  ].forEach(([id, text, extra]) => {
+    const r = Grader.grade(KEYS[id], text, false);
+    assert.strictEqual(r.correct, false, text);
+    if (extra) assert.deepStrictEqual(r.extra, extra, text);
+  });
+  assert.deepStrictEqual(Grader.grade(KEYS.w15, KEYS.w15.answer, true).extra, []);
+});
+
+test('present continuous without a "now" cue is wrong', () => {
+  assert.strictEqual(Grader.grade(KEYS.w24, 'We are collecting old books to give to poor children.', false).correct, false);
+});
+
+test('no accept pattern allows meaning words that are not in the cues', () => {
+  const BANNED = ['usually', 'always', 'often', 'very', 'really', 'please', 'right', 'about', 'some', 'any', 'again', 'only'];
+  built.answerDocs.forEach(({ id, data }) => {
+    const cues = Grader.normalize(data.cues).split(' ');
+    const words = new Set([data.answer].concat(Grader.compile(data).variants).flatMap(v => Grader.normalize(v).split(' ')));
+    BANNED.forEach(w => assert.ok(!words.has(w) || cues.includes(w), `${id}: "${w}"`));
+  });
+});
+
 test('every exam references existing questions', () => {
   built.examDocs.forEach(({ id, data }) => data.questionIds.forEach(q => assert.ok(QUESTIONS[q], `${id}: ${q}`)));
 });

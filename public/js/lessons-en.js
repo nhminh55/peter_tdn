@@ -9,7 +9,7 @@ window.LESSONS_EN = {
 <p>The test says: <i>Write complete sentences with the given cues. You must write <b>NO MORE THAN fifteen words</b> for each sentence.</i></p>
 <div class="ex">
   <div class="ex-cue">Katie / teacher / English / nice / kind //</div>
-  <div class="ex-ans">→ Katie<mark>'s</mark> teacher <mark>of</mark> English <mark>is very</mark> nice <mark>and</mark> kind.</div>
+  <div class="ex-ans">→ Katie<mark>'s</mark> teacher <mark>of</mark> English <mark>is</mark> nice <mark>and</mark> kind.</div>
 </div>
 <p>The highlighted words are the ones <b>you must add</b>. The examiner checks that you add the right small words and use the right verb forms.</p>
 
@@ -18,10 +18,21 @@ window.LESSONS_EN = {
   <li><b>Read all the cues</b>. Find the subject (who/what) and the main verb.</li>
   <li><b>Look for time words</b> to choose the tense (see the table below).</li>
   <li><b>Change the verb</b> to match the subject: add -s/-es, use is/are, was/were, did…</li>
-  <li><b>Add the missing words</b>: articles (a/an/the), prepositions (in/at/on/to/for), possessives (my/his/her/their), the verb <i>be</i>, <i>to</i>, <i>and</i>…</li>
+  <li><b>Add the missing grammar words</b>: articles (a/an/the), prepositions (in/at/on/to/for), auxiliaries (<i>be</i>, do/does, have), <i>to</i>, conjunctions (<i>and</i>, but…), and a possessive when grammar needs one (wash <b>their</b> hands).</li>
   <li><b>Keep the order of the cues</b>. Do not leave out any cue and do not change the meaning.</li>
   <li><b>Check</b>: capital letter at the start, a full stop (.) or question mark (?) at the end, 15 words or fewer.</li>
 </ol>
+
+<div class="warn"><b>Golden rule: add grammar words only, never new information</b>
+  <p><b>You may add:</b> auxiliaries (is/are, do/does, did, have, will…), articles (a/an/the), prepositions (in/on/at/to/for…), conjunctions (and/but/because…), <i>to</i> + verb, and change the verb (tense, -s/-es) or the noun (plural).</p>
+  <p><b>Never add words that carry meaning</b> and are not in the cues: <i>usually, always, often, very, really, please, right (now), about, some, any, every morning, yesterday, my/our/his…</i> They change the meaning or the time of the action — the examiner treats them as <b>extra words outside the task</b> and marks the whole sentence <b>wrong</b>.</p>
+  <ul>
+    <li>She / visit / grandparents / twice / month → <s>She usually visits her grandparents twice a month.</s> → She visits her grandparents twice a month.</li>
+    <li>Minh / be / good / play / chess → <s>Minh is very good at playing chess.</s> → Minh is good at playing chess.</li>
+    <li>Could / you / show / me / way / post office? → <s>Could you please show me…</s> → Could you show me the way to the post office?</li>
+  </ul>
+  <p><b>Do not use the present continuous on your own</b>: use it only when the cues show an action in progress (<i>now, at the moment, Look!, Listen!</i>). <i>We / collect / old books…</i> has no such word → <s>We are collecting</s> → We <b>collect</b>.</p>
+</div>
 
 <h3>Time words → tense</h3>
 <table class="tbl">
@@ -44,7 +55,7 @@ window.LESSONS_EN = {
     <li>No capital letter at the start, no full stop / question mark at the end.</li>
   </ul>
 </div>
-<div class="tip">There is often <b>more than one correct sentence</b>. Moving a time phrase (<i>Last summer, …</i> / <i>… last summer</i>) or using a correct synonym is fine, as long as the grammar is correct and you use all the cues.</div>`
+<div class="tip">There is often <b>more than one correct sentence</b>. Moving a time phrase (<i>Last summer, …</i> / <i>… last summer</i>) or using a correct synonym is fine, as long as the grammar is correct, you use all the cues and you <b>add no words that carry new meaning</b>.</div>`
   },
   'present-simple': {
     title: 'Present simple',

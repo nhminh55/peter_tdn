@@ -3,7 +3,11 @@
  *  1. Chuẩn hoá câu (chữ thường, bỏ dấu câu, mở viết tắt, gộp từ đồng nghĩa).
  *  2. So với các mẫu câu đúng `accept` của câu hỏi.
  *  3. Nếu sai: sinh các câu đúng từ mẫu, chọn câu gần nhất và dùng LCS theo từ
- *     để đánh dấu chỗ sai / chỗ thiếu.
+ *     để đánh dấu chỗ sai / chỗ thiếu. Nếu câu chỉ thừa từ so với câu đúng gần nhất
+ *     (vd. thêm usually, very, my…) thì trả về các từ đó trong `extra`.
+ *
+ * Quy tắc chấm: chỉ được thêm từ ngữ pháp (trợ động từ, a/an/the, giới từ, liên từ,
+ * to-V, chia thì, số nhiều). Mẫu `accept` không được chứa từ mang nghĩa mới ngoài gợi ý.
  *
  * Cú pháp mẫu: (a|b) chọn một · [a] có hoặc không · [a|b] chọn a, b hoặc bỏ
  *              $NAME thay bằng defs.NAME · "," dấu phẩy (không bắt buộc khi chấm)
@@ -245,9 +249,16 @@ function grade(key, text, strict) {
     });
   }
 
+  // Câu của em = một câu đúng + vài từ thêm vào → báo riêng các từ thừa ngoài gợi ý.
+  let extra = [];
+  if (best && best.r.len === best.ansFlat.keys.length && best.userFlat.keys.length > best.r.len) {
+    extra = markTokens(best.userTokens, best.userFlat, best.r.inA).filter(m => !m.ok).map(m => m.word);
+  }
+
   return {
     correct,
     contentOk,
+    extra,
     sameAsBook,
     issues,
     wordCount,

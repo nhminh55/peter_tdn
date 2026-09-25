@@ -589,6 +589,7 @@ function feedbackHtml(r) {
     <section class="feedback ${r.correct ? 'is-ok' : 'is-bad'}">
       ${banner}
       ${r.issues.length ? `<div class="issues"><b>${r.correct ? t('issues_note') : t('issues_err')}</b><ul>${r.issues.map(i => `<li>${issueText(i)}</li>`).join('')}</ul></div>` : ''}
+      ${r.extra && r.extra.length ? `<div class="issues"><b>${t('extra_title')}</b> ${t('extra_body', { w: r.extra.map(w => `<span class="w wrong">${esc(w)}</span>`).join(' ') })}</div>` : ''}
       ${compare}
       ${r.variants && r.variants.length ? `<div class="alts"><b>${t('alts_title')}</b><ul>${r.variants.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
       <div class="why">

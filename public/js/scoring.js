@@ -93,7 +93,7 @@
   function toResult(questionId, userAnswer, key, g, starsEarned, bonus, duplicate) {
     return {
       questionId, userAnswer,
-      correct: g.correct, contentOk: g.contentOk, sameAsBook: g.sameAsBook,
+      correct: g.correct, contentOk: g.contentOk, sameAsBook: g.sameAsBook, extra: g.extra || [],
       issues: g.issues, wordCount: g.wordCount,
       closest: g.closest, userMarks: g.userMarks, answerMarks: g.answerMarks, variants: g.variants,
       answer: key.answer,
