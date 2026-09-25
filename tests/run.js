@@ -5,16 +5,23 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
 const path = require('path');
 const Grader = require('../public/js/grader');
 const Scoring = require('../public/js/scoring');
 const { buildDocs, loadBrowserGlobals } = require('../scripts/seed');
 
 const ROOT = path.resolve(__dirname, '..');
-const win = loadBrowserGlobals([path.join(ROOT, 'scripts/source/data.js'), path.join(ROOT, 'public/js/lessons.js')]);
-const built = buildDocs(win.WRITING_QUESTIONS, win.LESSONS, win.TRIAL);
+// Ngân hàng Reading (scripts/source/reading.js) chỉ có trên máy như data.js; thiếu thì bỏ qua các test Reading.
+const READING_FILE = path.join(ROOT, 'scripts/source/reading.js');
+const hasReading = fs.existsSync(READING_FILE);
+const win = loadBrowserGlobals([path.join(ROOT, 'scripts/source/data.js'), path.join(ROOT, 'public/js/lessons.js'), path.join(ROOT, 'public/js/lessons-reading.js')]
+  .concat(hasReading ? [READING_FILE] : []));
+const built = buildDocs(win.WRITING_QUESTIONS, win.LESSONS, win.TRIAL, hasReading ? { passages: win.READING_PASSAGES, lessons: win.READING_LESSONS } : null);
 const KEYS = Object.fromEntries(built.answerDocs.map(d => [d.id, d.data]));
 const QUESTIONS = Object.fromEntries(built.questionDocs.map(d => [d.id, d.data]));
+const isWriting = id => QUESTIONS[id].type === 'writing_cues';
+const writingAnswers = built.answerDocs.filter(d => isWriting(d.id));
 
 // Mô phỏng một chuỗi lần bấm Check như api.checkAnswer.
 function answer(state, questionId, userAnswer, strict) {
@@ -33,8 +40,17 @@ const fresh = () => ({ profile: Object.assign({ name: '' }, Scoring.EMPTY_STATS)
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
+test('seed data has no errors', () => {
+  assert.deepStrictEqual(built.errors, []);
+});
+
 test('public questions carry no answer data', () => {
   built.questionDocs.forEach(({ id, data }) => {
+    if (data.type !== 'writing_cues') {
+      const allowed = ['type', 'part', 'passage', 'num', 'prompt', 'options', 'topics', 'source', 'order'];
+      Object.keys(data).forEach(k => assert.ok(allowed.includes(k), `${id}.${k}`));
+      return;
+    }
     assert.deepStrictEqual(Object.keys(data).sort(), ['cues', 'order', 'source', 'topics', 'type'], id);
     assert.ok(Array.isArray(data.source) && data.source.length, id);
     assert.ok(data.source.every(s => (s.gen === true && Object.keys(s).length === 1) || (typeof s.book === 'number' && typeof s.test === 'number')), id);
@@ -42,7 +58,7 @@ test('public questions carry no answer data', () => {
 });
 
 test('answers hold answer, accept, defs and bilingual explanation', () => {
-  built.answerDocs.forEach(({ id, data }) => {
+  writingAnswers.forEach(({ id, data }) => {
     ['answer', 'accept', 'defs', 'explanation', 'cues'].forEach(k => assert.ok(k in data, `${id}.${k}`));
     assert.ok(data.explanation.vi.length && data.explanation.en.length, id);
   });
@@ -187,7 +203,7 @@ test('present continuous without a "now" cue is wrong', () => {
 
 test('no accept pattern allows meaning words that are not in the cues', () => {
   const BANNED = ['usually', 'always', 'often', 'really', 'please', 'right', 'about', 'some', 'any', 'again', 'only'];
-  built.answerDocs.forEach(({ id, data }) => {
+  writingAnswers.forEach(({ id, data }) => {
     const cues = Grader.normalize(data.cues).split(' ');
     const words = new Set([data.answer].concat(Grader.compile(data).variants).flatMap(v => Grader.normalize(v).split(' ')));
     BANNED.forEach(w => assert.ok(!words.has(w) || cues.includes(w), `${id}: "${w}"`));
@@ -231,7 +247,7 @@ test('every exam references existing questions', () => {
 });
 
 test('every book answer and generated variant is accepted', () => {
-  built.answerDocs.forEach(({ id, data }) => {
+  writingAnswers.forEach(({ id, data }) => {
     assert.ok(Grader.grade(data, data.answer, true).correct, id);
     Grader.compile(data).variants.forEach(v => assert.ok(Grader.grade(data, v, true).correct, `${id}: ${v}`));
   });
@@ -240,9 +256,83 @@ test('every book answer and generated variant is accepted', () => {
 test('trial exam: TRIAL.questions questions from the first TRIAL.lessons lessons', () => {
   const trial = built.examDocs.find(e => e.id === 'trial');
   assert.ok(trial, 'exams/trial');
-  assert.strictEqual(trial.data.questionIds.length, win.TRIAL.questions);
+  const writing = trial.data.questionIds.filter(isWriting);
+  assert.strictEqual(writing.length, win.TRIAL.questions);
   const topics = win.LESSONS.slice(0, win.TRIAL.lessons).map(l => l.id);
-  trial.data.questionIds.forEach(id => assert.ok(QUESTIONS[id].topics.some(t => topics.includes(t)), id));
+  writing.forEach(id => assert.ok(QUESTIONS[id].topics.some(t => topics.includes(t)), id));
+});
+
+/* ---------- Reading ---------- */
+
+const readingTest = (name, fn) => test(name, () => { if (hasReading) fn(); else console.log('    (skipped: no scripts/source/reading.js)'); });
+const readingIds = () => built.questionDocs.filter(d => d.data.type !== 'writing_cues').map(d => d.id);
+
+readingTest('reading bank: 60 letters and 60 texts, 4 questions each, answers only in answers/', () => {
+  const parts = built.passageDocs.map(d => d.data.part);
+  assert.strictEqual(parts.filter(p => p === 'letter').length, 60);
+  assert.strictEqual(parts.filter(p => p === 'text').length, 60);
+  built.passageDocs.forEach(({ id, data }) => {
+    assert.strictEqual(data.questionIds.length, 4, id);
+    assert.ok(!('answer' in data) && !('questions' in data), id);
+    data.questionIds.forEach(q => assert.strictEqual(QUESTIONS[q].passage, id, q));
+  });
+  readingIds().forEach(id => {
+    const key = KEYS[id];
+    assert.strictEqual(key.choice, true, id);
+    assert.ok(key.explanation.vi.length && key.explanation.vi.length === key.explanation.en.length, id);
+    assert.ok(key.evidence.length, id);
+  });
+});
+
+readingTest('reading: letters ask True/False then A/B/C; texts ask A/B/C for each blank', () => {
+  readingIds().forEach(id => {
+    const q = QUESTIONS[id];
+    if (q.part === 'letter') {
+      assert.strictEqual(q.type, q.num <= 2 ? 'reading_tf' : 'reading_mc', id);
+      assert.ok(q.prompt, id);
+    } else {
+      assert.strictEqual(q.type, 'reading_mc', id);
+      assert.ok(q.num >= 5 && q.num <= 8, id);
+    }
+    if (q.type === 'reading_mc') assert.strictEqual(q.options.length, 3, id);
+  });
+});
+
+readingTest('reading: choice answers are marked case-insensitively and share stars and streak', () => {
+  const st = fresh();
+  const tf = 'rl-b1-t01-1', mc = 'rl-b1-t01-3', gap = 'rt-b1-t01-5';
+  let out = answer(st, tf, KEYS[tf].answer.toLowerCase());
+  assert.strictEqual(out.result.correct, true);
+  assert.deepStrictEqual(out.result.evidence, KEYS[tf].evidence);
+  out = answer(st, mc, KEYS[mc].answer);
+  assert.strictEqual(out.result.correct, true);
+  assert.strictEqual(st.profile.stars, 2);
+  assert.strictEqual(st.profile.streak, 2);
+  const wrong = ['A', 'B', 'C'].find(c => c !== KEYS[gap].answer);
+  out = answer(st, gap, wrong);
+  assert.strictEqual(out.result.correct, false);
+  assert.strictEqual(out.result.answer, KEYS[gap].answer);
+  assert.strictEqual(st.profile.streak, 0);
+  assert.strictEqual(st.sub.details.length, 3);
+  assert.strictEqual(st.profile.qstats[gap].last, false);
+});
+
+readingTest('reading: exams per test, per part and per question type', () => {
+  ['rl-b1-t01', 'rt-b2-t30', 'rl-all', 'rt-all'].forEach(id => assert.ok(built.examDocs.some(e => e.id === id), id));
+  const all = built.examDocs.find(e => e.id === 'rl-all');
+  assert.strictEqual(all.data.questionIds.length, 240);
+  assert.ok(all.data.questionIds.every(id => QUESTIONS[id].part === 'letter'));
+  Object.values(win.READING_LESSONS).flat().forEach(l => {
+    const n = readingIds().filter(id => QUESTIONS[id].topics.includes(l.id)).length;
+    assert.strictEqual(Boolean(built.examDocs.find(e => e.id === 'topic-' + l.id)), n > 0, l.id);
+  });
+});
+
+readingTest('trial exam: the first passage of each reading part', () => {
+  const trial = built.examDocs.find(e => e.id === 'trial').data;
+  assert.deepStrictEqual(Array.from(trial.passageIds), ['rl-b1-t01', 'rt-b1-t01']);
+  const reading = Array.from(trial.questionIds).filter(id => !isWriting(id));   // mảng từ sandbox vm: đưa về Array thường
+  assert.deepStrictEqual(reading, ['rl-b1-t01', 'rt-b1-t01'].flatMap(p => [1, 2, 3, 4].map(n => `${p}-${p[1] === 'l' ? n : n + 4}`)));
 });
 
 let failed = 0;

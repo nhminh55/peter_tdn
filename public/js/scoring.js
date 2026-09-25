@@ -4,6 +4,8 @@
  *
  * Luật: đúng 1 câu +1 ★; mỗi khi chuỗi đúng liên tiếp chia hết cho 5 thì thưởng thêm +5 ★;
  * sai một câu thì chuỗi về 0. Nộp lại câu đã có trong lượt thì không chấm / cộng sao lần nữa.
+ * Writing và Reading dùng chung sao, chuỗi và qstats. Câu Reading (đáp án có `choice: true`)
+ * chấm bằng choiceGrader thay cho Grader.
  */
 (function (root, factory) {
   const api = factory();
@@ -21,17 +23,30 @@
   const USER_STATS = ['stars', 'streak', 'bestStreak', 'bonusCount', 'totalAnswered', 'totalCorrect', 'qstats'];
   const EMPTY_STATS = { stars: 0, streak: 0, bestStreak: 0, bonusCount: 0, totalAnswered: 0, totalCorrect: 0, qstats: {} };
 
+  // Câu chọn đáp án (Reading): True/False hoặc A/B/C, không phân biệt hoa thường.
+  const normChoice = s => String(s || '').trim().toLowerCase();
+  const choiceGrader = {
+    grade(key, userAnswer) {
+      const correct = normChoice(userAnswer) === normChoice(key.answer);
+      return {
+        correct, contentOk: correct, sameAsBook: true, error: null, issues: [], wordCount: 0,
+        closest: null, userMarks: null, answerMarks: null, diff: { missing: [], wrong: [], extra: [] }, variants: []
+      };
+    }
+  };
+
   /**
    * @param {object} p
    *   profile  thống kê hiện tại của user (users/{uid})
    *   sub      bài nộp hiện tại { details: [] } hoặc null nếu là lượt mới
    *   questionId, userAnswer, strict
-   *   key      đáp án { cues, answer, accept, defs, explanation }
-   *   grader   module Grader
+   *   key      đáp án { cues, answer, accept, defs, explanation } — Reading: { choice: true, answer, evidence, explanation }
+   *   grader   module Grader (bỏ qua với câu Reading)
    *   now      số ms (thời điểm nộp)
    * @returns {{ result, stats, details, score, starsEarned, duplicate }}
    */
   function applyAnswer({ profile, sub, questionId, userAnswer, strict, key, grader, now }) {
+    if (key.choice) grader = choiceGrader;
     const details = sub && Array.isArray(sub.details) ? sub.details.slice() : [];
     const stats = Object.assign({}, EMPTY_STATS, pick(profile, USER_STATS));
     stats.qstats = Object.assign({}, stats.qstats);
@@ -100,6 +115,7 @@
       closest: g.closest, userMarks: g.userMarks, answerMarks: g.answerMarks, variants: g.variants,
       answer: key.answer,
       explanation: key.explanation || { vi: [], en: [] },
+      evidence: key.evidence || [],
       starsEarned, bonus, duplicate
     };
   }
@@ -140,7 +156,7 @@
   }
 
   return {
-    applyAnswer, pickDaily, EMPTY_STATS, USER_STATS,
+    applyAnswer, pickDaily, choiceGrader, EMPTY_STATS, USER_STATS,
     STREAK_BONUS_EVERY, STREAK_BONUS_STARS, MAX_STARS_PER_ANSWER, MAX_DETAILS_PER_SUBMISSION
   };
 });

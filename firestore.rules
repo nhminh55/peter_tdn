@@ -1,8 +1,8 @@
 rules_version = '2';
 
 // Gói Spark: không có Cloud Functions, client tự chấm. Rules bảo vệ theo cách "nộp trước, xem sau":
-//   - Đề (questions, exams): thành viên đọc được.
-//   - Làm thử (khách chưa đăng nhập): chỉ get được exams/trial và đúng các câu trong đó (đề + đáp án).
+//   - Đề (questions, exams, passages — bài đọc Reading): thành viên đọc được.
+//   - Làm thử (khách chưa đăng nhập): chỉ get được exams/trial và đúng các câu / bài đọc trong đó (đề + đáp án).
 //   - Đáp án answers/{qid}: chỉ đọc được TỪNG câu, sau khi đã ghi câu trả lời của mình vào
 //     answerUnlocks/{uid}_{qid} (không sửa, không xoá được). Không cho list → không tải hàng loạt.
 //   - users/{uid}: client tự cộng sao nhưng mỗi lần ghi chỉ được +1 lượt trả lời và tối đa +6 sao.
@@ -23,6 +23,9 @@ service cloud.firestore {
     function isTrial(questionId) {
       return questionId in get(/databases/$(database)/documents/exams/trial).data.questionIds;
     }
+    function isTrialPassage(passageId) {
+      return passageId in get(/databases/$(database)/documents/exams/trial).data.get('passageIds', []);
+    }
 
     // Username → email cho trang đăng nhập (tra trước khi đăng nhập nên phải public).
     // Chỉ cho get theo đúng username; cấm list để không ai tải được danh sách email.
@@ -35,6 +38,13 @@ service cloud.firestore {
     match /questions/{questionId} {
       allow read: if isMember();
       allow get: if isTrial(questionId);
+      allow write: if false;
+    }
+
+    // Bài đọc (thư / đoạn văn) của Reading — không chứa đáp án.
+    match /passages/{passageId} {
+      allow read: if isMember();
+      allow get: if isTrialPassage(passageId);
       allow write: if false;
     }
 

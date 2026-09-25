@@ -70,14 +70,17 @@ const uid = () => {
 
 /* ---------- Đọc dữ liệu ---------- */
 
-// Chỉ đề bài: collection `questions` không có đáp án.
+// Đề bài (writing: cues; reading: passage, num, prompt, options) — collection `questions` không có đáp án.
+const toQuestion = d => Object.assign({ topics: [], source: [], order: 0 }, d.data(), { id: d.id });
+const toPassage = d => Object.assign({}, d.data(), { id: d.id });
+
+// Chỉ đề bài: `questions` và `passages` (bài đọc Reading) không có đáp án.
 export async function fetchCatalog() {
-  const [qSnap, eSnap] = await Promise.all([getDocs(collection(db, 'questions')), getDocs(collection(db, 'exams'))]);
-  const questions = qSnap.docs
-    .map(d => ({ id: d.id, cues: d.data().cues, topics: d.data().topics || [], source: d.data().source || [], order: d.data().order || 0 }))
-    .sort((a, b) => a.order - b.order);
+  const [qSnap, eSnap, pSnap] = await Promise.all(['questions', 'exams', 'passages'].map(c => getDocs(collection(db, c))));
+  const questions = qSnap.docs.map(toQuestion).sort((a, b) => a.order - b.order);
   const exams = Object.fromEntries(eSnap.docs.map(d => [d.id, Object.assign({ id: d.id }, d.data())]));
-  return { questions, exams };
+  const passages = Object.fromEntries(pSnap.docs.map(d => [d.id, toPassage(d)]));
+  return { questions, exams, passages };
 }
 
 export async function fetchProfile() {
@@ -155,14 +158,18 @@ export async function checkAnswer({ examId, submissionId, questionId, userAnswer
 
 /* ---------- Làm thử (khách chưa đăng nhập) ---------- */
 
-// Chỉ các câu trong exams/trial — rules cho khách get đúng những document này.
+// Chỉ các câu và bài đọc trong exams/trial — rules cho khách get đúng những document này.
 export async function fetchTrialCatalog() {
   const exam = await getDoc(doc(db, 'exams', 'trial'));
   if (!exam.exists()) throw new Error('Trial exam is missing.');
-  const snaps = await Promise.all(exam.data().questionIds.map(id => getDoc(doc(db, 'questions', id))));
-  const questions = snaps.filter(d => d.exists())
-    .map(d => ({ id: d.id, cues: d.data().cues, topics: d.data().topics || [], source: d.data().source || [], order: d.data().order || 0 }));
-  return { questions, exams: { trial: Object.assign({ id: 'trial' }, exam.data()) } };
+  const { questionIds, passageIds = [] } = exam.data();
+  const [qSnaps, pSnaps] = await Promise.all([
+    Promise.all(questionIds.map(id => getDoc(doc(db, 'questions', id)))),
+    Promise.all(passageIds.map(id => getDoc(doc(db, 'passages', id))))
+  ]);
+  const questions = qSnaps.filter(d => d.exists()).map(toQuestion).sort((a, b) => a.order - b.order);
+  const passages = Object.fromEntries(pSnaps.filter(d => d.exists()).map(d => [d.id, toPassage(d)]));
+  return { questions, passages, exams: { trial: Object.assign({ id: 'trial' }, exam.data()) } };
 }
 
 /**

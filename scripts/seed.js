@@ -1,13 +1,19 @@
 #!/usr/bin/env node
 /*
- * Seed chạy một lần: tách ngân hàng câu hỏi trong scripts/source/data.js thành 2 collection.
+ * Seed chạy một lần: tách ngân hàng câu hỏi trong scripts/source/data.js (Writing) và
+ * scripts/source/reading.js (Reading) thành các collection.
  *
- *   questions/{id}  { type: 'writing_cues', cues, topics, source: [{book, test} | {gen: true}], order }
+ *   questions/{id}  Writing: { type: 'writing_cues', cues, topics, source: [{book, test} | {gen: true}], order }
+ *                   Reading: { type: 'reading_tf' | 'reading_mc', part: 'letter' | 'text', passage, num,
+ *                              prompt?, options?, topics, source: [{book, test}], order }
  *                   ← đề bài, thành viên đọc được
- *   answers/{id}    { cues, answer, accept, defs, explanation: {vi, en} }
+ *   passages/{id}   bài đọc Reading { part, title, paragraphs | text, source: {book, test}, questionIds, order }
+ *   answers/{id}    Writing: { cues, answer, accept, defs, explanation: {vi, en} }
+ *                   Reading: { choice: true, answer, evidence, explanation: {vi, en} }
  *                   ← đáp án, chỉ đọc được sau khi đã nộp câu đó (xem firestore.rules)
- *   exams/{id}      60 đề (b1-t01 … b2-t30), 'all', 'topic-<id>' cho từng chủ điểm, và 'trial'
- *                   (các câu khách chưa đăng nhập được làm thử — xem window.TRIAL trong lessons.js)
+ *   exams/{id}      Writing: 60 đề (b1-t01 … b2-t30), 'all', 'topic-<id>' cho từng chủ điểm
+ *                   Reading: rl-b1-t01 … (thư), rt-b1-t01 … (đoạn văn), 'rl-all', 'rt-all', 'topic-<id>'
+ *                   'trial': các câu / bài đọc khách chưa đăng nhập được làm thử (window.TRIAL trong lessons.js)
  *
  * Cách chạy (từ thư mục scripts/):
  *   npm install
@@ -28,11 +34,15 @@ const grader = require('../public/js/grader');
 const ROOT = path.resolve(__dirname, '..');
 
 function parseArgs(argv) {
-  const args = { dryRun: false, project: process.env.GCLOUD_PROJECT || null, source: path.join(__dirname, 'source', 'data.js') };
+  const args = {
+    dryRun: false, project: process.env.GCLOUD_PROJECT || null,
+    source: path.join(__dirname, 'source', 'data.js'), reading: path.join(__dirname, 'source', 'reading.js')
+  };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--dry-run') args.dryRun = true;
     else if (argv[i] === '--project') args.project = argv[++i];
     else if (argv[i] === '--source') args.source = path.resolve(argv[++i]);
+    else if (argv[i] === '--reading') args.reading = path.resolve(argv[++i]);
     else throw new Error('Unknown argument: ' + argv[i]);
   }
   return args;
@@ -59,7 +69,89 @@ const EXAM_ORDER = {
 const pad = n => String(n).padStart(2, '0');
 const examIdFor = (book, test) => `b${book}-t${pad(test)}`;
 
-function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }) {
+const READING_PARTS = { letter: 'rl', text: 'rt' };
+const CHOICES = { tf: ['True', 'False'], mc: ['A', 'B', 'C'] };
+
+/*
+ * Reading: mỗi bài đọc (thư / đoạn văn) → passages/{id}; mỗi câu hỏi → questions + answers.
+ * lessons: { letter: [...], text: [...] } (window.READING_LESSONS).
+ * Câu / bài đọc làm thử: TRIAL.passages bài đầu tiên của mỗi mảng.
+ */
+function buildReadingDocs(passages, lessons, trial, orderFrom) {
+  const errors = [];
+  const passageDocs = [], questionDocs = [], answerDocs = [], examDocs = [];
+  const trialQuestionIds = [], trialPassageIds = [];
+  const ids = new Set();
+  let order = orderFrom;
+
+  passages.forEach(p => {
+    const prefix = READING_PARTS[p.part];
+    if (!prefix) { errors.push(`${p.id}: unknown part ${p.part}`); return; }
+    if (ids.has(p.id)) errors.push(`Duplicate passage ${p.id}`);
+    ids.add(p.id);
+    const [book, test] = p.src || [];
+    if (p.id !== `${prefix}-${examIdFor(book, test)}`) errors.push(`${p.id}: id does not match src ${JSON.stringify(p.src)}`);
+    const topicIds = new Set((lessons[p.part] || []).map(l => l.id));
+    const paras = p.part === 'letter' ? p.paragraphs || [] : [p.text || ''];
+    if (!paras.join('')) errors.push(`${p.id}: empty passage`);
+    if (!p.questions || p.questions.length !== 4) errors.push(`${p.id}: needs 4 questions`);
+
+    const questionIds = [];
+    (p.questions || []).forEach(q => {
+      const id = `${p.id}-${q.num}`;
+      questionIds.push(id);
+      const choices = CHOICES[q.type];
+      if (!choices) errors.push(`${id}: unknown type ${q.type}`);
+      else if (!choices.includes(q.answer)) errors.push(`${id}: answer ${q.answer} is not one of ${choices.join('/')}`);
+      if (q.type === 'mc' && (!Array.isArray(q.options) || q.options.length !== 3)) errors.push(`${id}: needs 3 options`);
+      if (p.part === 'letter' && !q.prompt) errors.push(`${id}: missing prompt`);
+      if (p.part === 'text' && !p.text.includes(`(${q.num})________`)) errors.push(`${id}: blank (${q.num}) not in text`);
+      if (!q.topics || !q.topics.length) errors.push(`${id}: no topics`);
+      (q.topics || []).forEach(t => { if (!topicIds.has(t)) errors.push(`${id}: unknown topic ${t}`); });
+      (q.evidence || []).forEach(e => { if (!paras.some(par => par.includes(e))) errors.push(`${id}: evidence not in passage: ${e}`); });
+      if (!(q.vi || []).length || (q.vi || []).length !== (q.en || []).length) errors.push(`${id}: vi/en explanations missing or differ in length`);
+
+      const data = {
+        type: 'reading_' + q.type, part: p.part, passage: p.id, num: q.num,
+        topics: q.topics || [], source: [{ book, test }], order: order++
+      };
+      if (q.prompt) data.prompt = q.prompt;
+      if (q.options) data.options = q.options;
+      questionDocs.push({ id, data });
+      answerDocs.push({ id, data: { choice: true, answer: q.answer, evidence: q.evidence || [], explanation: { vi: q.vi || [], en: q.en || [] } } });
+    });
+
+    const passage = { part: p.part, title: p.title || '', source: { book, test }, questionIds, order: passageDocs.length };
+    if (p.part === 'letter') passage.paragraphs = p.paragraphs; else passage.text = p.text;
+    passageDocs.push({ id: p.id, data: passage });
+    examDocs.push({
+      id: p.id,
+      data: {
+        kind: 'test', part: p.part, book, test, passageId: p.id, questionIds,
+        title: { vi: `Quyển ${book} — Đề ${test}`, en: `Book ${book} — Test ${test}` }, order: 3000 + passageDocs.length
+      }
+    });
+  });
+
+  Object.entries(READING_PARTS).forEach(([part, prefix]) => {
+    const ofPart = passageDocs.filter(d => d.data.part === part);
+    if (!ofPart.length) return;
+    examDocs.push({
+      id: `${prefix}-all`,
+      data: { kind: 'all', part, questionIds: ofPart.flatMap(d => d.data.questionIds), title: { vi: 'Tất cả các bài', en: 'All passages' }, order: part === 'letter' ? 1 : 2 }
+    });
+    (lessons[part] || []).forEach((l, i) => {
+      const questionIds = questionDocs.filter(q => q.data.part === part && q.data.topics.includes(l.id)).map(q => q.id);
+      if (!questionIds.length) return;
+      examDocs.push({ id: `topic-${l.id}`, data: { kind: 'topic', part, topic: l.id, questionIds, title: { vi: l.title }, order: 1500 + i } });
+    });
+    ofPart.slice(0, trial.passages || 0).forEach(d => { trialPassageIds.push(d.id); trialQuestionIds.push(...d.data.questionIds); });
+  });
+
+  return { passageDocs, questionDocs, answerDocs, examDocs, trialQuestionIds, trialPassageIds, errors };
+}
+
+function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, reading = null) {
   const lessonTitles = Object.fromEntries(lessons.map(l => [l.id, l.title]));
   const errors = [];
   const ids = new Set();
@@ -140,12 +232,27 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }) {
   const trialTopics = lessons.slice(0, trial.lessons).map(l => l.id);
   const trialIds = questions.filter(q => q.topics.some(t => trialTopics.includes(t))).slice(0, trial.questions).map(q => q.id);
   if (trialIds.length < trial.questions) errors.push(`Trial: only ${trialIds.length} questions for topics ${trialTopics.join(', ')}`);
+
+  const passageDocs = [];
+  const trialPassageIds = [];
+  if (reading) {
+    const r = buildReadingDocs(reading.passages, reading.lessons, trial, questions.length);
+    r.questionDocs.forEach(d => { if (ids.has(d.id)) errors.push(`Duplicate id ${d.id}`); ids.add(d.id); });
+    r.examDocs.forEach(d => { if (examDocs.some(e => e.id === d.id)) errors.push(`Duplicate exam ${d.id}`); });
+    questionDocs.push(...r.questionDocs);
+    answerDocs.push(...r.answerDocs);
+    examDocs.push(...r.examDocs);
+    passageDocs.push(...r.passageDocs);
+    trialIds.push(...r.trialQuestionIds);
+    trialPassageIds.push(...r.trialPassageIds);
+    errors.push(...r.errors);
+  }
   examDocs.push({
     id: 'trial',
-    data: { kind: 'trial', questionIds: trialIds, title: { vi: 'Làm thử', en: 'Free trial' }, order: 2000 }
+    data: { kind: 'trial', questionIds: trialIds, passageIds: trialPassageIds, title: { vi: 'Làm thử', en: 'Free trial' }, order: 2000 }
   });
 
-  return { questionDocs, answerDocs, examDocs, errors };
+  return { questionDocs, answerDocs, examDocs, passageDocs, errors };
 }
 
 async function write(db, collection, docs) {
@@ -160,13 +267,19 @@ async function write(db, collection, docs) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const win = loadBrowserGlobals([args.source, path.join(ROOT, 'public', 'js', 'lessons.js')]);
+  const hasReading = fs.existsSync(args.reading);
+  const win = loadBrowserGlobals([args.source, path.join(ROOT, 'public', 'js', 'lessons.js'), path.join(ROOT, 'public', 'js', 'lessons-reading.js')]
+    .concat(hasReading ? [args.reading] : []));
   const questions = win.WRITING_QUESTIONS;
   const lessons = win.LESSONS;
   if (!Array.isArray(questions) || !questions.length) throw new Error('WRITING_QUESTIONS not found in ' + args.source);
+  if (!hasReading) console.warn(`No reading bank at ${path.relative(ROOT, args.reading)} — seeding Writing only.`);
+  const reading = hasReading ? { passages: win.READING_PASSAGES, lessons: win.READING_LESSONS } : null;
 
-  const { questionDocs, answerDocs, examDocs, errors } = buildDocs(questions, lessons, win.TRIAL);
-  console.log(`Loaded ${questions.length} questions, ${examDocs.length} exams from ${path.relative(ROOT, args.source)}`);
+  const { questionDocs, answerDocs, examDocs, passageDocs, errors } = buildDocs(questions, lessons, win.TRIAL, reading);
+  console.log(`Loaded ${questions.length} writing questions from ${path.relative(ROOT, args.source)}`);
+  if (reading) console.log(`Loaded ${passageDocs.length} reading passages (${questionDocs.length - questions.length} questions) from ${path.relative(ROOT, args.reading)}`);
+  console.log(`${examDocs.length} exams`);
   if (errors.length) {
     console.error('Data errors:\n  ' + errors.join('\n  '));
     process.exit(1);
@@ -185,6 +298,7 @@ async function main() {
   await write(db, 'questions', questionDocs);
   await write(db, 'answers', answerDocs);
   await write(db, 'exams', examDocs);
+  if (passageDocs.length) await write(db, 'passages', passageDocs);
   console.log('Done.');
 }
 
@@ -192,4 +306,4 @@ if (require.main === module) {
   main().catch(err => { console.error(err.message || err); process.exit(1); });
 }
 
-module.exports = { buildDocs, loadBrowserGlobals, EXAM_ORDER };
+module.exports = { buildDocs, buildReadingDocs, loadBrowserGlobals, EXAM_ORDER };
