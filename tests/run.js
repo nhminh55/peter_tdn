@@ -127,6 +127,25 @@ test('commas in patterns and answers are optional, with or without spaces', () =
   assert.ok(Grader.grade(KEYS.w05, 'Last summer my family visited Da Lat by car.', true).correct);
 });
 
+test('time adverbials and if/when/while/before clauses may go first or last', () => {
+  [
+    ['w67', 'At 8 p.m. yesterday, I was doing my homework.', 'I was doing my homework at 8 p.m. yesterday.'],
+    ['w09', 'The boys are playing football in the back yard at the moment.', 'At the moment, the boys are playing football in the back yard.'],
+    ['w129', 'If you study hard, you will pass the exam.', 'You will pass the exam if you study hard.'],
+    ['w74', 'When I arrived at the party, everyone was dancing.', 'Everyone was dancing when I arrived at the party.'],
+    ['w71', 'I was walking to school when I saw an accident.', 'When I saw an accident, I was walking to school.'],
+    ['w185', "Don't talk in class while the teacher is explaining the lesson.", "While the teacher is explaining the lesson, don't talk in class."],
+    ['w02', 'Children should wash their hands before meals.', 'Before meals, children should wash their hands.'],
+    ['w35', 'She brushes her teeth twice a day.', 'Twice a day, she brushes her teeth.']
+  ].forEach(([id, ...texts]) => texts.forEach(t => assert.ok(Grader.grade(KEYS[id], t, true).correct, `${id}: ${t}`)));
+});
+
+test('suggested variants keep the order of the cues', () => {
+  const vs = Grader.sampleVariants(KEYS.w23, '', 10);
+  assert.ok(!vs.some(v => /now in my town|^Now/.test(v)), JSON.stringify(vs));
+  assert.ok(!Grader.sampleVariants(KEYS.w05, '', 10).some(v => /^My family|^Our family/.test(v)));
+});
+
 test('allowed additions: possessive before a noun, "very" before an adjective', () => {
   [
     ['w04', 'My grandfather is watering his flowers at the moment.'],

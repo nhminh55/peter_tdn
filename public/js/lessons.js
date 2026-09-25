@@ -68,7 +68,7 @@ window.LESSONS = [
     <li>Không viết hoa chữ đầu câu, quên dấu chấm/chấm hỏi.</li>
   </ul>
 </div>
-<div class="tip">Một câu thường có <b>nhiều cách viết đúng</b>. Đổi vị trí cụm thời gian (<i>Last summer, …</i> / <i>… last summer</i>) hay dùng từ đồng nghĩa đúng đều được chấp nhận, miễn là đúng ngữ pháp, dùng đủ các gợi ý và <b>không bịa thêm thông tin</b> (thời gian, tần suất…).</div>`
+<div class="tip">Một câu có thể có <b>vài cách viết đúng</b> (chọn giới từ, mạo từ khác, dùng từ đồng nghĩa…), nhưng hãy luôn <b>viết theo đúng thứ tự gợi ý</b>, dùng đủ các gợi ý và <b>không bịa thêm thông tin</b> (thời gian, tần suất…).</div>`
   },
   {
     id: 'present-simple',

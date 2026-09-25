@@ -65,7 +65,7 @@ window.LESSONS_EN = {
     <li>No capital letter at the start, no full stop / question mark at the end.</li>
   </ul>
 </div>
-<div class="tip">There is often <b>more than one correct sentence</b>. Moving a time phrase (<i>Last summer, …</i> / <i>… last summer</i>) or using a correct synonym is fine, as long as the grammar is correct, you use all the cues and you <b>add no new information</b> (time, frequency…).</div>`
+<div class="tip">A sentence can have <b>a few correct versions</b> (another preposition or article, a synonym…), but always <b>follow the order of the cues</b>, use all the cues and <b>add no new information</b> (time, frequency…).</div>`
   },
   'present-simple': {
     title: 'Present simple',

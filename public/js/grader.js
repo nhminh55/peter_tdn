@@ -301,10 +301,20 @@ function formIssues(text, cues) {
   return issues;
 }
 
+// Câu có giữ thứ tự từ như đáp án sách (vốn theo thứ tự gợi ý) không: mọi từ chung của hai câu
+// phải xuất hiện theo cùng thứ tự — chỉ được thay / thêm / bớt từ, không được đảo cụm.
+function keepsOrder(text, answer) {
+  const a = normalize(text).split(' '), b = normalize(answer).split(' ');
+  const left = b.slice();
+  const common = a.filter(w => { const i = left.indexOf(w); if (i < 0) return false; left.splice(i, 1); return true; }).length;
+  return lcsDiff(a, b).len === common;
+}
+
 // Một vài cách viết đúng khác (ngoài đáp án sách), lấy rải đều trong danh sách.
+// Chỉ gợi ý những câu giữ đúng thứ tự gợi ý — không dạy học sinh đảo cụm từ.
 function sampleVariants(key, exclude, n) {
   const skip = new Set([normalize(key.answer), normalize(exclude || '')]);
-  const vs = compile(key).variants.filter(v => !skip.has(normalize(v)));
+  const vs = compile(key).variants.filter(v => !skip.has(normalize(v)) && keepsOrder(v, key.answer));
   if (vs.length <= n) return vs;
   const out = [];
   for (let i = 0; i < n; i++) out.push(vs[Math.floor(i * vs.length / n)]);
