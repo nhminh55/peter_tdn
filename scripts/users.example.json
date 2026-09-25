@@ -1,0 +1,4 @@
+[
+  { "username": "peter", "email": "peter@example.com", "name": "Peter" },
+  { "username": "newkid", "email": "newkid@example.com", "name": "New Kid", "password": "đặt-mật-khẩu-ở-đây (không bắt buộc)" }
+]

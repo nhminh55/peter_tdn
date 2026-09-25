@@ -11,7 +11,7 @@ Chạy hoàn toàn trên **gói Spark (miễn phí)** của Firebase: Hosting + 
   - **Practice**: làm từng câu, bấm Check để chấm và xem giải thích. Đúng 1 câu +1 ★, đúng 5 câu liên tiếp thưởng thêm +5 ★.
   - Chấm linh hoạt theo mẫu câu: chấp nhận mọi cách viết đúng ngữ pháp, đúng nghĩa.
 - **Listening, Reading**: sắp ra mắt.
-- Mỗi thí sinh đăng nhập bằng tài khoản Email/Password riêng; giao diện tiếng Việt / English.
+- Mỗi thí sinh đăng nhập bằng **username** + mật khẩu riêng (username được tra ra email ngầm); giao diện tiếng Việt / English.
 
 ## Kiến trúc
 
@@ -25,7 +25,8 @@ public/                   Firebase Hosting
   js/lessons*.js, i18n.js bài giảng và chuỗi giao diện
 scripts/
   seed.js                 tách scripts/source/data.js vào questions + answers + exams
-  sync-users.js           thêm tài khoản Auth vào danh sách thành viên users/{uid}
+  sync-users.js           tạo tài khoản từ users.json: Auth user + users/{uid} + usernames/{username}
+  users.example.json      mẫu danh sách tài khoản (users.json thật có email nên không lên repo)
   source/data.js          dữ liệu gốc có đáp án — chỉ để trên máy (.gitignore), không lên repo / web
 tests/run.js              test logic chấm điểm: node tests/run.js
 firestore.rules           quyền truy cập
@@ -38,6 +39,7 @@ firestore.rules           quyền truy cập
 | `questions/{id}` | `type`, `cues`, `topics`, `source [{book, test}]`, `order` | thành viên đọc |
 | `answers/{id}` | `answer`, `accept`, `defs`, `explanation {vi, en}`, `cues` | đọc **từng câu**, chỉ sau khi đã nộp câu đó; không `list` được |
 | `answerUnlocks/{uid}_{qid}` | câu trả lời đầu tiên của thí sinh | tạo một lần, không sửa / xoá |
+| `usernames/{username}` | `email` — để đăng nhập bằng username | ai cũng `get` được từng username; không `list`, không ghi |
 | `exams/{id}` | `questionIds`, `kind` (`test` / `all` / `topic`), `title` | thành viên đọc |
 | `users/{uid}` | `email`, `name`, `stars`, `streak`, `qstats`… — có document = là thành viên | chủ tài khoản đọc / ghi, rules giới hạn mức cộng sao |
 | `submissions/{id}` | `userId`, `examId`, `score`, `total`, `details[]` | chủ tài khoản ghi / đọc, mỗi lần thêm đúng 1 câu |
@@ -50,7 +52,7 @@ rules giới hạn mỗi lần trả lời tối đa +6 ★ và đúng +1 lượ
 ## Cài đặt & deploy
 
 1. Firebase console: bật **Authentication → Email/Password**, tạo **Firestore** (location `asia-southeast1`).
-   Tạo tài khoản cho từng thí sinh trong *Authentication → Users → Add user*.
+   Không cần tạo tài khoản bằng tay — `sync-users.js` làm việc đó.
 2. `.firebaserc` và `public/js/firebase-config.js` đã trỏ vào project `peter-tdn`.
 3. Tải khoá admin: *Project settings → Service accounts → Generate new private key* → lưu thành
    `scripts/service-account.json` (đã được `.gitignore` bỏ qua). Không cần gói Blaze.
@@ -59,9 +61,14 @@ rules giới hạn mỗi lần trả lời tối đa +6 ★ và đúng +1 lượ
    cd scripts && npm install
    node seed.js --dry-run
    GOOGLE_APPLICATION_CREDENTIALS=./service-account.json node seed.js --project peter-tdn
+   cp users.example.json users.json    # sửa danh sách: username, email, name, password (không bắt buộc)
+   GOOGLE_APPLICATION_CREDENTIALS=./service-account.json node sync-users.js --project peter-tdn --dry-run
    GOOGLE_APPLICATION_CREDENTIALS=./service-account.json node sync-users.js --project peter-tdn
    ```
-   Thêm thí sinh mới: tạo user trong console rồi chạy lại `sync-users.js`.
+   `sync-users.js` tạo Auth user nếu chưa có (không ghi `password` thì sinh mật khẩu ngẫu nhiên và in ra một lần),
+   cấp quyền làm bài (`users/{uid}`) và ghi `usernames/{username}`. Tài khoản đã có giữ nguyên mật khẩu, sao, lịch sử;
+   muốn đổi mật khẩu thì ghi `password` rồi chạy thêm `--reset-passwords`. Thêm thí sinh mới: thêm một dòng vào
+   `users.json` rồi chạy lại. Chạy lại nhiều lần vẫn an toàn.
 5. Deploy rules + index, rồi thử ở máy: `firebase deploy --only firestore` → `firebase serve --only hosting`
    → mở `http://localhost:5000`.
 6. Đưa web lên (chạy được ở cả hai địa chỉ):

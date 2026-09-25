@@ -120,8 +120,8 @@ function renderHeader() {
     <a class="star-pill" href="#/results" title="${t('stars_title')}">
       <span class="star-icon">★</span><b id="star-total">${profile.stars}</b>
     </a>
-    <button type="button" class="logout" id="logout" title="${esc(user.email || '')}">
-      <span class="logout-name">${esc(profile.name || user.email || '')}</span><span class="logout-label">${t('logout')}</span>
+    <button type="button" class="logout" id="logout" title="${esc(profile.username || user.email || '')}">
+      <span class="logout-name">${esc(profile.name || profile.username || user.email || '')}</span><span class="logout-label">${t('logout')}</span>
     </button>` : ''}`;
   $$('[data-lang]').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
   const out = $('#logout');
@@ -707,8 +707,8 @@ function viewLogin(errorKey) {
       <h1>${t('login_title')}</h1>
       <p>${t('login_desc')}</p>
       <form id="login-form" novalidate>
-        <label for="login-email">${t('email')}</label>
-        <input id="login-email" type="email" autocomplete="username" required>
+        <label for="login-username">${t('username')}</label>
+        <input id="login-username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
         <label for="login-password">${t('password')}</label>
         <input id="login-password" type="password" autocomplete="current-password" required>
         <div id="login-error" class="submit-error" ${errorKey ? '' : 'hidden'}>${errorKey ? t(errorKey) : ''}</div>
@@ -717,19 +717,19 @@ function viewLogin(errorKey) {
       <p class="login-help">${t('login_help')}</p>
     </section>`);
   const form = $('#login-form');
-  $('#login-email').focus();
+  $('#login-username').focus();
   form.addEventListener('submit', async e => {
     e.preventDefault();
-    const email = $('#login-email').value.trim();
+    const username = $('#login-username').value.trim();
     const password = $('#login-password').value;
     const btn = $('#login-btn');
     const box = $('#login-error');
-    if (!email || !password) { box.textContent = t('login_err_cred'); box.hidden = false; return; }
+    if (!username || !password) { box.textContent = t('login_err_cred'); box.hidden = false; return; }
     btn.disabled = true;
     btn.textContent = t('logging_in');
     box.hidden = true;
     try {
-      await api.login(email, password);
+      await api.login(username, password);
       boot();
     } catch (err) {
       console.error(err);

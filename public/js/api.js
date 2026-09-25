@@ -39,7 +39,22 @@ export async function currentUser() {
   return auth.currentUser;
 }
 
-export async function login(email, password) {
+// Đăng nhập bằng username: tra usernames/{username} → email (rules cho phép get công khai),
+// rồi mới gọi signInWithEmailAndPassword. Nhập email trực tiếp (có "@") vẫn được.
+export async function login(username, password) {
+  const id = String(username).trim().toLowerCase();
+  let email = id;
+  if (!id.includes('@')) {
+    let snap = null;
+    // Username không hợp lệ làm đường dẫn Firestore lỗi → coi như sai tên đăng nhập.
+    if (/^[a-z0-9][a-z0-9._-]{1,29}$/.test(id)) snap = await getDoc(doc(db, 'usernames', id));
+    if (!snap || !snap.exists()) {
+      const err = new Error('Unknown username');
+      err.code = 'auth/invalid-credential';   // cùng thông báo với sai mật khẩu
+      throw err;
+    }
+    email = snap.data().email;
+  }
   const cred = await signInWithEmailAndPassword(auth, email, password);
   return cred.user;
 }

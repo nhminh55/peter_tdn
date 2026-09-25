@@ -8,6 +8,7 @@ rules_version = '2';
 //   - submissions: của ai người đó ghi / đọc; mỗi lần cập nhật chỉ thêm đúng 1 câu.
 //
 // Thành viên = tài khoản có document users/{uid} do admin tạo (scripts/sync-users.js).
+// Đăng nhập bằng username: client tra usernames/{username} → email rồi signInWithEmailAndPassword.
 // Giới hạn: vì chấm ở client, người rành kỹ thuật vẫn có thể tự báo "đúng" cho câu sai.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -17,6 +18,14 @@ service cloud.firestore {
       return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
     function unlockId(questionId) { return request.auth.uid + '_' + questionId; }
+
+    // Username → email cho trang đăng nhập (tra trước khi đăng nhập nên phải public).
+    // Chỉ cho get theo đúng username; cấm list để không ai tải được danh sách email.
+    // Ghi bằng scripts/sync-users.js (Admin SDK).
+    match /usernames/{username} {
+      allow get: if true;
+      allow list, write: if false;
+    }
 
     match /questions/{questionId} {
       allow read: if isMember();
