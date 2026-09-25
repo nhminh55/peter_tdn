@@ -20,7 +20,7 @@ window.READING_LESSONS = {
 
 <h3>Bố cục một bức thư trong đề</h3>
 <table class="tbl">
-  <tr><th>Phần</th><th>Ví dụ trong đề</th><th>Cho em biết</th></tr>
+  <tr><th>Phần</th><th>Ví dụ trong đề</th><th>Cho bạn biết</th></tr>
   <tr><td>Lời chào</td><td><b>Dear</b> Mai Phuong,</td><td><b>Người nhận</b> thư (= <i>you</i>)</td></tr>
   <tr><td>Đoạn mở đầu</td><td>Last weekend, our school held <b>the Talent Show</b>, and I really want to tell you all about it.</td><td><b>Chủ đề</b> của thư → câu 3</td></tr>
   <tr><td>Đoạn 2</td><td>The school yard was crowded and noisy in a happy way…</td><td>Không khí sự kiện, các hoạt động</td></tr>
@@ -45,7 +45,7 @@ window.READING_LESSONS = {
   <li><b>Đọc từng câu hỏi</b>, gạch chân <b>từ khoá</b> (tên sự kiện, <i>volunteer, excited, believe, started…</i>) rồi tìm câu có từ đó trong thư.</li>
   <li><b>So thật kỹ</b> câu hỏi với câu trong thư rồi mới chọn. Đáp án đúng thường <b>diễn đạt lại</b> bằng từ khác (<i>everyone was excited</i> = <i>full of energy</i>).</li>
 </ol>
-<div class="tip">Đề thi nhiều năm giống nhau về bố cục: các bức thư đều kể về <b>một sự kiện ở trường</b> (hội chợ, lễ hội, cuộc thi, ngày hội…). Nắm chắc bố cục là em làm nhanh được cả 4 câu.</div>`
+<div class="tip">Đề thi nhiều năm giống nhau về bố cục: các bức thư đều kể về <b>một sự kiện ở trường</b> (hội chợ, lễ hội, cuộc thi, ngày hội…). Nắm chắc bố cục là bạn làm nhanh được cả 4 câu.</div>`
     },
     {
       id: 'letter-tf',
@@ -53,7 +53,7 @@ window.READING_LESSONS = {
       icon: '✅',
       short: 'So câu với thư; bẫy nobody, all, exactly the same',
       body: `
-<p>Đề: <i>Decide whether this sentence is True or False.</i> Em viết <b>True</b> nếu câu <b>đúng với nội dung thư</b>, <b>False</b> nếu thư nói ngược lại.</p>
+<p>Đề: <i>Decide whether this sentence is True or False.</i> Bạn viết <b>True</b> nếu câu <b>đúng với nội dung thư</b>, <b>False</b> nếu thư nói ngược lại.</p>
 
 <h3>Cách làm</h3>
 <ol class="steps">

@@ -229,7 +229,7 @@ function tokenize(text) {
 /*
  * Căn hai dãy từ (đã chuẩn hoá) theo LCS rồi phân loại phần chênh lệch giữa hai từ khớp liền nhau:
  *   có ở cả hai phía → wrong (dùng sai / chia sai, ghép cặp theo thứ tự)
- *   chỉ ở câu của em → extra (từ thừa)      chỉ ở câu mẫu → missing (từ thiếu)
+ *   chỉ ở câu của bạn → extra (từ thừa)      chỉ ở câu mẫu → missing (từ thiếu)
  * Trả về nhãn cho từng từ của mỗi phía và danh sách cặp sai.
  */
 function lcsDiff(a, b) {
@@ -279,7 +279,7 @@ function markTokens(tokens, flat, kinds) {
 const bare = w => w.replace(/^[^\wÀ-ỹ']+|[^\wÀ-ỹ']+$/g, '');
 const uniq = xs => xs.filter((x, i) => xs.indexOf(x) === i);
 
-// Tóm tắt lỗi theo từ: thiếu / sai (em viết → cần viết) / thừa.
+// Tóm tắt lỗi theo từ: thiếu / sai (bạn viết → cần viết) / thừa.
 function diffSummary(best) {
   const { userTokens, userFlat, ansTokens, ansFlat, d } = best;
   const wrong = uniq(d.pairs.map(([i, j]) => `${bare(userTokens[userFlat.owner[i]].word)}→${bare(ansTokens[ansFlat.owner[j]].word)}`))

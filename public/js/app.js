@@ -54,7 +54,7 @@ function localDefaults() {
   // sessions: lượt đang làm của từng mảng { writing, letter, text }
   // daily: bộ câu "Luyện mỗi ngày" đã giao hôm nay theo mảng { [mảng]: { uid, date, ids } }
   // pool: nguồn câu Writing khi luyện — 'book' (trong sách) | 'gen' (tự soạn) | 'all'
-  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10, pool: 'all' }, sessions: {}, guestProfile: null, daily: {} };
+  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10, pool: 'all', sound: true }, sessions: {}, guestProfile: null, daily: {} };
 }
 
 let storageOk = true;
@@ -79,6 +79,7 @@ function loadLocal() {
   }
 }
 const local = loadLocal();
+window.Sound.setMuted(!local.settings.sound);
 function saveLocal() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(local)); storageOk = true; }
   catch (e) { storageOk = false; }
@@ -184,13 +185,14 @@ function renderHeader() {
   document.documentElement.lang = t('html_lang');
   document.title = t('doc_title');
   $('#header').innerHTML = `
-    <a class="brand" href="#/"><span class="brand-mark">TĐN</span><span class="brand-text">${t('brand_title')}<small>${t('brand_sub')}</small></span></a>
+    <a class="brand" href="#/"><span class="brand-mark" aria-hidden="true">🦉</span><span class="brand-text">${t('brand_title')}<small>${t('brand_sub')}</small></span></a>
     ${inside ? `<nav class="nav">
-      <a href="#/"${active('#/')}>${t('nav_home')}</a>
-      <a href="#/reading"${active('#/reading')}>${t('nav_reading')}</a>
-      <a href="#/writing"${active('#/writing')}>${t('nav_writing')}</a>
-      ${guest ? '' : `<a href="#/results"${active('#/results')}>${t('nav_results')}</a>`}
+      <a href="#/"${active('#/')}><span class="nav-ic">🏠</span>${t('nav_home')}</a>
+      <a href="#/reading"${active('#/reading')}><span class="nav-ic">📖</span>${t('nav_reading')}</a>
+      <a href="#/writing"${active('#/writing')}><span class="nav-ic">✏️</span>${t('nav_writing')}</a>
+      ${guest ? '' : `<a href="#/results"${active('#/results')}><span class="nav-ic">🏆</span>${t('nav_results')}</a>`}
     </nav>` : '<span class="nav"></span>'}
+    <button type="button" class="sound-btn" id="sound-btn" title="${t(local.settings.sound ? 'sound_off' : 'sound_on')}" aria-label="${t(local.settings.sound ? 'sound_off' : 'sound_on')}" aria-pressed="${!local.settings.sound}">${local.settings.sound ? '🔊' : '🔇'}</button>
     <div class="lang" role="group" aria-label="${t('lang_switch')}">
       <button type="button" class="flag ${lang() === 'vi' ? 'on' : ''}" data-lang="vi" title="${t('lang_vi')}" aria-label="${t('lang_vi')}" aria-pressed="${lang() === 'vi'}">${FLAG_VN}</button>
       <button type="button" class="flag ${lang() === 'en' ? 'on' : ''}" data-lang="en" title="${t('lang_en')}" aria-label="${t('lang_en')}" aria-pressed="${lang() === 'en'}">${FLAG_EN}</button>
@@ -210,6 +212,13 @@ function renderHeader() {
       <span class="logout-name">${esc(profile.name || profile.username || user.email || '')}</span><span class="logout-label">${t('logout')}</span>
     </button>` : ''}`;
   $$('[data-lang]').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+  $('#sound-btn').addEventListener('click', () => {
+    local.settings.sound = !local.settings.sound;
+    window.Sound.setMuted(!local.settings.sound);
+    saveLocal();
+    renderHeader();
+    window.Sound.play('tap');
+  });
   const out = $('#logout');
   if (out) out.addEventListener('click', doLogout);
   $('#footer').textContent = t('footer');
@@ -268,6 +277,8 @@ function viewHome() {
   const readingQs = modQuestions('letter').length + modQuestions('text').length;
   page(`
     <section class="hero">
+      <div class="hero-mascot" aria-hidden="true"><span class="mascot">🦉</span><span class="hero-deco d1">⭐</span><span class="hero-deco d2">🎈</span><span class="hero-deco d3">✨</span></div>
+      <div class="hero-body">
       <h1>${t('home_title', { hello })}</h1>
       <p>${t('home_desc')}</p>
       <div class="hero-stats">
@@ -275,20 +286,21 @@ function viewHome() {
         <div><b>${s.answered}</b><span>${t('stat_answered')}</span></div>
         <div><b>${pct(s.correct, s.answered)}%</b><span>${t('stat_accuracy')}</span></div>
       </div>
+      </div>
     </section>
     ${guest ? guestBanner() : ''}
     <section class="skills">
-      <div class="skill disabled">
+      <div class="skill listening disabled">
         <div class="skill-icon">🎧</div>
         <h2>Listening</h2><p>${t('listening_desc')}</p>
         <span class="badge">${t('coming_soon')}</span>
       </div>
-      <a class="skill" href="#/reading">
+      <a class="skill reading" href="#/reading">
         <div class="skill-icon">📖</div>
         <h2>Reading</h2><p>${t('reading_desc')}</p>
         <span class="badge go">${guest ? t('reading_badge_guest', { q: readingQs, l: TRIAL.lessons }) : t('reading_badge', { p: Object.keys(PASSAGES).length, q: readingQs, l: readingLessons })}</span>
       </a>
-      <a class="skill" href="#/writing">
+      <a class="skill writing" href="#/writing">
         <div class="skill-icon">✍️</div>
         <h2>Writing</h2><p>${t('writing_desc')}</p>
         <span class="badge go">${guest ? t('writing_badge_guest', { q: modQuestions('writing').length, l: TRIAL.lessons }) : t('writing_badge', { q: modQuestions('writing').length, l: LESSONS.length })}</span>
@@ -303,7 +315,7 @@ function viewReading() {
     const n = modQuestions(m).length, p = modPassages(m).length;
     const s = totals(m);
     return `
-      <a class="big-choice part" href="${MODS[m].base}">
+      <a class="big-choice part ${m}" href="${MODS[m].base}">
         <span class="bc-icon">${m === 'letter' ? '✉️' : '📰'}</span>
         <span class="bc-title">${t('crumb_' + m)}</span>
         <span class="bc-desc">${t(m + '_card', { p, n })}</span>
@@ -668,6 +680,9 @@ function runTop(s, pending) {
     </section>`;
 }
 
+// Câu khen / động viên ngẫu nhiên (các câu cách nhau bằng |).
+const pick = key => { const list = t(key).split('|'); return list[Math.floor(Math.random() * list.length)]; };
+
 const hintHtml = q => t('hint', {
   topics: q.topics.map(id => `<a href="${lessonHref(id)}" target="_blank">${esc(topicTitle(id))}</a>`).join(', ')
 });
@@ -720,7 +735,7 @@ function viewWritingRun(s, q) {
           <span></span>
           <button class="btn primary big" id="btn-next">${s.i + 1 < s.ids.length ? t('btn_next') : t('btn_finish')}</button>` : `
           <button class="btn ghost" id="btn-hint">${t('btn_hint')}</button>
-          <button class="btn primary big" id="btn-check">${t('btn_check')}</button>`}
+          <button class="btn primary big check" id="btn-check">${t('btn_check')}</button>`}
       </div>
     </section>
     <div id="feedback">${pending ? feedbackHtml(pending.result) : ''}</div>`);
@@ -782,7 +797,7 @@ function viewWritingRun(s, q) {
 let lastPassage = null;   // bài đọc của lần vẽ trước — cùng bài thì giữ vị trí cuộn
 
 // Tô sáng các đoạn bằng chứng (evidence) rồi thay chỗ trống "(5)________" bằng ô điền.
-// gaps: { [số câu]: { word, wrong, cls } } — đáp án đúng, phương án sai em đã chọn (gạch đi) và kiểu (current / ok / bad).
+// gaps: { [số câu]: { word, wrong, cls } } — đáp án đúng, phương án sai bạn đã chọn (gạch đi) và kiểu (current / ok / bad).
 function passageTextHtml(raw, evidence, gaps) {
   const ranges = [];
   (evidence || []).forEach(e => {
@@ -871,7 +886,7 @@ function viewReadingRun(m, s, q) {
               <span></span>
               <button class="btn primary big" id="btn-next">${s.i + 1 < s.ids.length ? t('btn_next') : t('btn_finish')}</button>` : `
               <button class="btn ghost" id="btn-hint">${t('btn_hint')}</button>
-              <button class="btn primary big" id="btn-check">${t('btn_check')}</button>`}
+              <button class="btn primary big check" id="btn-check">${t('btn_check')}</button>`}
           </div>
         </section>
         <div id="feedback">${pending ? readingFeedbackHtml(pending.result, q) : ''}</div>
@@ -892,6 +907,7 @@ function viewReadingRun(m, s, q) {
 
   const btnCheck = $('#btn-check');
   const choose = v => {
+    if (picked !== v) window.Sound.play('tap');
     picked = v;
     $$('[data-choice]').forEach(b => {
       const on = b.dataset.choice === v;
@@ -943,8 +959,8 @@ function viewReadingRun(m, s, q) {
 
 function readingFeedbackHtml(r, q) {
   const banner = r.correct
-    ? `<div class="banner ok"><span class="b-icon">🎉</span><div><b>${t('fb_ok')}</b> +1 ★${r.bonus ? ` <span class="bonus">${t('fb_bonus', { b: STREAK_BONUS_STARS, e: STREAK_BONUS_EVERY })}</span>` : ''}</div></div>`
-    : `<div class="banner bad"><span class="b-icon">💪</span><div>${t('fb_bad_choice', { a: esc(choiceLabel(q, r.answer)) })}</div></div>`;
+    ? `<div class="banner ok"><span class="b-icon">🦉</span><div><b>${r.praise || t('fb_ok')}</b> <span class="plus-star">+1 ★</span>${r.bonus ? ` <span class="bonus">${t('fb_bonus', { b: STREAK_BONUS_STARS, e: STREAK_BONUS_EVERY })}</span>` : ''}</div></div>`
+    : `<div class="banner bad"><span class="b-icon">🤔</span><div>${t('fb_bad_choice', { a: esc(choiceLabel(q, r.answer)) })}</div></div>`;
   const steps = (r.explanation && (r.explanation[lang()] || r.explanation.vi)) || [];
   return `
     <section class="feedback ${r.correct ? 'is-ok' : 'is-bad'}">
@@ -964,6 +980,7 @@ function readingFeedbackHtml(r, q) {
 
 function applyResult(s, res) {
   const r = res.result;
+  if (r.correct) r.praise = pick('praise');
   s.submissionId = res.submissionId;
   profile = res.profile;
   if (guest) { s.guestSub = res.sub; local.guestProfile = profile; }
@@ -973,8 +990,18 @@ function applyResult(s, res) {
   saveLocal();
   renderHeader();
   viewPracticeRun(s.mod);
-  if (r.correct && r.starsEarned) bumpStars();
-  if (r.bonus && !r.duplicate) celebrate(profile.streak);
+  const bonus = r.bonus && !r.duplicate;
+  if (r.correct) {
+    window.Sound.play('correct');
+    // Bung từ chỗ đang nhìn (đáp án đúng / ô viết câu), vì phần kết quả còn đang cuộn tới.
+    confetti($('.choice.right') || $('#answer') || $('.banner.ok'), bonus ? 60 : 24);
+  } else {
+    window.Sound.play('wrong');
+    const card = $('.q-card');
+    if (card) { card.classList.remove('wobble'); void card.offsetWidth; card.classList.add('wobble'); }
+  }
+  if (r.correct && r.starsEarned) { bumpStars(); setTimeout(() => window.Sound.play('star'), 380); }
+  if (bonus) setTimeout(() => celebrate(profile.streak), 500);
 }
 
 function nextQuestion(m) {
@@ -1009,13 +1036,13 @@ const issueText = issue => t('issue_' + issue.code, { n: issue.n });
 function feedbackHtml(r) {
   let banner;
   if (r.correct) {
-    banner = `<div class="banner ok"><span class="b-icon">🎉</span><div><b>${t('fb_ok')}</b> +1 ★${r.bonus ? ` <span class="bonus">${t('fb_bonus', { b: STREAK_BONUS_STARS, e: STREAK_BONUS_EVERY })}</span>` : ''}${r.sameAsBook ? '' : `<div class="banner-sub">${t('fb_ok_variant')}</div>`}</div></div>`;
+    banner = `<div class="banner ok"><span class="b-icon">🦉</span><div><b>${r.praise || t('fb_ok')}</b> <span class="plus-star">+1 ★</span>${r.bonus ? ` <span class="bonus">${t('fb_bonus', { b: STREAK_BONUS_STARS, e: STREAK_BONUS_EVERY })}</span>` : ''}${r.sameAsBook ? '' : `<div class="banner-sub">${t('fb_ok_variant')}</div>`}</div></div>`;
   } else if (r.error === 'TOO_LONG') {
     banner = `<div class="banner bad"><span class="b-icon">✂️</span><div>${t('fb_long', { n: r.wordCount })}</div></div>`;
   } else if (r.contentOk) {
     banner = `<div class="banner bad"><span class="b-icon">✋</span><div>${t('fb_form')}</div></div>`;
   } else {
-    banner = `<div class="banner bad"><span class="b-icon">💪</span><div>${t('fb_bad')}</div></div>`;
+    banner = `<div class="banner bad"><span class="b-icon">🤔</span><div>${t('fb_bad')}</div></div>`;
   }
 
   const compare = !r.contentOk && r.userMarks ? `
@@ -1054,10 +1081,12 @@ function viewSummary(m) {
   const total = s.results.length;
   const p = pct(correct, total);
   const msg = p === 100 ? t('sum_100') : p >= 80 ? t('sum_80') : p >= 50 ? t('sum_50') : t('sum_low');
+  const face = p === 100 ? '🏆' : p >= 80 ? '🥳' : p >= 50 ? '😊' : '💪';
   lastPassage = null;
   page(`
     ${crumbs(modCrumbs(m).slice(1).concat([[t('crumb_practice'), `${base}/practice`], [t('crumb_summary')]]))}
     <section class="summary">
+      <div class="sum-face" aria-hidden="true">${face}</div>
       <div class="sum-stars">★ +${s.starsEarned}</div>
       <h1>${msg}</h1>
       <p>${t('sum_detail', { label: esc(sessionLabel(s)), c: correct, t: total, p })}</p>
@@ -1077,6 +1106,13 @@ function viewSummary(m) {
     </section>`);
   const retry = $('#retry');
   if (retry) retry.addEventListener('click', () => startSession(m, 'retry', wrongInSession));
+  // Chỉ chúc mừng ngay sau khi làm xong (không phát lại khi tải lại trang tóm tắt).
+  if (s.cheered !== true) {
+    s.cheered = true;
+    saveLocal();
+    window.Sound.play('finish');
+    if (p >= 80) confetti($('.sum-face'), 70);
+  }
 }
 
 /* ---------- Hiệu ứng ---------- */
@@ -1087,10 +1123,37 @@ function bumpStars() {
   pill.classList.remove('bump'); void pill.offsetWidth; pill.classList.add('bump');
 }
 
+// Pháo giấy bung ra từ phần tử origin (không có thì từ giữa màn hình).
+const CONFETTI_COLORS = ['#ff6b6b', '#ffd43b', '#51cf66', '#339af0', '#cc5de8', '#ff922b', '#22b8cf'];
+function confetti(origin, n = 30) {
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = origin ? origin.getBoundingClientRect() : { left: innerWidth / 2 - 20, top: innerHeight / 3, width: 40, height: 0 };
+  const layer = document.createElement('div');
+  layer.className = 'confetti';
+  layer.setAttribute('aria-hidden', 'true');
+  for (let i = 0; i < n; i++) {
+    const bit = document.createElement('i');
+    const angle = Math.random() * Math.PI * 2, dist = 80 + Math.random() * 180;
+    bit.style.left = `${r.left + r.width / 2}px`;
+    bit.style.top = `${r.top + r.height / 2}px`;
+    bit.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+    bit.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+    bit.style.setProperty('--dy', `${Math.sin(angle) * dist - 120}px`);
+    bit.style.setProperty('--rot', `${Math.random() * 720 - 360}deg`);
+    bit.style.animationDelay = `${Math.random() * 0.12}s`;
+    if (i % 3 === 0) bit.classList.add('round');
+    layer.appendChild(bit);
+  }
+  document.body.appendChild(layer);
+  setTimeout(() => layer.remove(), 1600);
+}
+
 function celebrate(streak) {
+  window.Sound.play('bonus');
+  confetti(null, 90);
   const el = document.createElement('div');
   el.className = 'celebrate';
-  el.innerHTML = `<div class="cel-card"><div class="cel-stars">${'★'.repeat(STREAK_BONUS_STARS)}</div><b>${t('cel_title', { n: streak })}</b><span>${t('cel_sub', { b: STREAK_BONUS_STARS })}</span></div>`;
+  el.innerHTML = `<div class="cel-card"><div class="cel-mascot">🦉</div><div class="cel-stars">${'★'.repeat(STREAK_BONUS_STARS)}</div><b>${t('cel_title', { n: streak })}</b><span>${t('cel_sub', { b: STREAK_BONUS_STARS })}</span></div>`;
   document.body.appendChild(el);
   el.addEventListener('click', () => el.remove());
   setTimeout(() => el.remove(), 2600);
@@ -1248,6 +1311,7 @@ function viewLogin(errorKey) {
   renderHeader();
   page(`
     <section class="login">
+      <div class="login-mascot" aria-hidden="true">🦉</div>
       <h1>${t('login_title')}</h1>
       <p>${t('login_desc')}</p>
       <form id="login-form" novalidate>
@@ -1330,7 +1394,7 @@ async function doLogout() {
 let routing = false;
 async function boot() {
   ready = false;
-  page(`<div class="boot"><div class="spinner"></div><p>${t('loading')}</p></div>`);
+  page(`<div class="boot"><div class="boot-mascot" aria-hidden="true">🦉</div><div class="spinner"></div><p>${t('loading')}</p></div>`);
   try {
     user = await api.currentUser();
   } catch (err) {

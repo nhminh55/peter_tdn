@@ -14,7 +14,7 @@ window.LESSONS = [
   <div class="ex-cue">Katie / teacher / English / nice / kind //</div>
   <div class="ex-ans">→ Katie<mark>'s</mark> teacher <mark>of</mark> English <mark>is very</mark> nice <mark>and</mark> kind.</div>
 </div>
-<p>Những chữ được tô màu là chữ em phải <b>tự thêm vào</b>. Bài này chấm xem em có thêm đúng các chữ đó và chia đúng động từ không.</p>
+<p>Những chữ được tô màu là chữ bạn phải <b>tự thêm vào</b>. Bài này chấm xem bạn có thêm đúng các chữ đó và chia đúng động từ không.</p>
 
 <h3>6 bước làm bài</h3>
 <ol class="steps">
@@ -273,7 +273,7 @@ He <b>often</b> helps his mother. — Lan <b>usually</b> does her homework. — 
   <ul>
     <li><s>should to wash</s>, <s>must wears</s> → sau modal là <b>V nguyên mẫu</b>.</li>
     <li><s>We not should throw</s> → <b>not đứng sau</b> modal: should not.</li>
-    <li>Đề có thể cố tình ghi "not should" để thử em — hãy sửa lại cho đúng.</li>
+    <li>Đề có thể cố tình ghi "not should" để thử bạn — hãy sửa lại cho đúng.</li>
   </ul>
 </div>
 <h3>Câu mệnh lệnh</h3>
@@ -504,7 +504,7 @@ Children wash <b>their</b> hands · She brushes <b>her</b> teeth · He does <b>h
 </table>
 <div class="tip"><b>Hai vế cùng thì</b>: khi nối hai hành động bằng <i>and</i>, cả hai động từ chia cùng thì — went … <b>and</b> bought.</div>
 <div class="tip"><b>Dấu phẩy</b>: khi mệnh đề <i>If / After / When</i> đứng đầu câu, đặt dấu phẩy trước vế sau.<br>If it rains tomorrow<b>,</b> we will stay at home.</div>
-<div class="warn">Gợi ý có thể <b>không có sẵn</b> liên từ, em phải tự thêm: My dream house / have / swimming pool / big garden → … a swimming pool <b>and</b> a big garden.</div>`
+<div class="warn">Gợi ý có thể <b>không có sẵn</b> liên từ, bạn phải tự thêm: My dream house / have / swimming pool / big garden → … a swimming pool <b>and</b> a big garden.</div>`
   }
 ];
 
