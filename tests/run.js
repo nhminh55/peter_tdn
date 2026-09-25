@@ -50,7 +50,7 @@ test('answers hold answer, accept, defs and bilingual explanation', () => {
 
 test('correct variant: +1 star, detail saved', () => {
   const st = fresh();
-  const out = answer(st, 'w05', 'My family visited Dalat by car last summer.');
+  const out = answer(st, 'w05', 'Last summer, our family visited Dalat by car.');
   assert.strictEqual(out.result.correct, true);
   assert.strictEqual(out.result.sameAsBook, false);
   assert.strictEqual(out.starsEarned, 1);
@@ -127,17 +127,22 @@ test('commas in patterns and answers are optional, with or without spaces', () =
   assert.ok(Grader.grade(KEYS.w05, 'Last summer my family visited Da Lat by car.', true).correct);
 });
 
-test('time adverbials and if/when/while/before clauses may go first or last', () => {
+test('only the order of the cues is accepted: moving a phrase to the front or back is wrong', () => {
   [
-    ['w67', 'At 8 p.m. yesterday, I was doing my homework.', 'I was doing my homework at 8 p.m. yesterday.'],
     ['w09', 'The boys are playing football in the back yard at the moment.', 'At the moment, the boys are playing football in the back yard.'],
+    ['w02', 'Children should wash their hands before meals.', 'Before meals, children should wash their hands.'],
+    ['w35', 'She brushes her teeth twice a day.', 'Twice a day, she brushes her teeth.'],
+    ['w05', 'Last summer my family visited Da Lat by car.', 'My family visited Da Lat by car last summer.'],
+    ['w67', 'At 8 p.m. yesterday, I was doing my homework.', 'I was doing my homework at 8 p.m. yesterday.'],
     ['w129', 'If you study hard, you will pass the exam.', 'You will pass the exam if you study hard.'],
     ['w74', 'When I arrived at the party, everyone was dancing.', 'Everyone was dancing when I arrived at the party.'],
     ['w71', 'I was walking to school when I saw an accident.', 'When I saw an accident, I was walking to school.'],
     ['w185', "Don't talk in class while the teacher is explaining the lesson.", "While the teacher is explaining the lesson, don't talk in class."],
-    ['w02', 'Children should wash their hands before meals.', 'Before meals, children should wash their hands.'],
-    ['w35', 'She brushes her teeth twice a day.', 'Twice a day, she brushes her teeth.']
-  ].forEach(([id, ...texts]) => texts.forEach(t => assert.ok(Grader.grade(KEYS[id], t, true).correct, `${id}: ${t}`)));
+    ['w157', 'There is no water in the bottle.', 'In the bottle, there is no water.']
+  ].forEach(([id, inOrder, swapped]) => {
+    assert.ok(Grader.grade(KEYS[id], inOrder, true).correct, `${id}: ${inOrder}`);
+    assert.strictEqual(Grader.grade(KEYS[id], swapped, true).correct, false, `${id}: ${swapped}`);
+  });
 });
 
 test('suggested variants keep the order of the cues', () => {
