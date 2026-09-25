@@ -17,6 +17,7 @@ const READING_LESSONS = window.READING_LESSONS;
 const TRIAL = window.TRIAL;
 const { STREAK_BONUS_EVERY, STREAK_BONUS_STARS } = window.Scoring;
 const MAX_WORDS = 15;
+const APP_VERSION = '1.0.0';
 // Số câu làm thử: TRIAL.questions câu Writing + TRIAL.passages bài đọc (4 câu) của mỗi phần Reading.
 const TRIAL_QUESTIONS = TRIAL.questions + (TRIAL.passages || 0) * 4 * 2;
 
@@ -54,7 +55,7 @@ function localDefaults() {
   // sessions: lượt đang làm của từng mảng { writing, letter, text }
   // daily: bộ câu "Luyện mỗi ngày" đã giao hôm nay theo mảng { [mảng]: { uid, date, ids } }
   // pool: nguồn câu Writing khi luyện — 'book' (trong sách) | 'gen' (tạo bởi AI) | 'all'
-  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10, pool: 'all', sound: true }, sessions: {}, guestProfile: null, daily: {} };
+  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10, pool: 'all', sound: true, music: true }, sessions: {}, guestProfile: null, daily: {} };
 }
 
 let storageOk = true;
@@ -80,6 +81,7 @@ function loadLocal() {
 }
 const local = loadLocal();
 window.Sound.setMuted(!local.settings.sound);
+window.Sound.setMusic(local.settings.music);
 function saveLocal() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(local)); storageOk = true; }
   catch (e) { storageOk = false; }
@@ -192,6 +194,7 @@ function renderHeader() {
       <a href="#/writing"${active('#/writing')}><span class="nav-ic">✏️</span>${t('nav_writing')}</a>
       ${guest ? '' : `<a href="#/results"${active('#/results')}><span class="nav-ic">🏆</span>${t('nav_results')}</a>`}
     </nav>` : '<span class="nav"></span>'}
+    <button type="button" class="sound-btn music-btn ${local.settings.music ? '' : 'off'}" id="music-btn" title="${t(local.settings.music ? 'music_off' : 'music_on')}" aria-label="${t(local.settings.music ? 'music_off' : 'music_on')}" aria-pressed="${!!local.settings.music}">🎵</button>
     <button type="button" class="sound-btn" id="sound-btn" title="${t(local.settings.sound ? 'sound_off' : 'sound_on')}" aria-label="${t(local.settings.sound ? 'sound_off' : 'sound_on')}" aria-pressed="${!local.settings.sound}">${local.settings.sound ? '🔊' : '🔇'}</button>
     <div class="lang" role="group" aria-label="${t('lang_switch')}">
       <button type="button" class="flag ${lang() === 'vi' ? 'on' : ''}" data-lang="vi" title="${t('lang_vi')}" aria-label="${t('lang_vi')}" aria-pressed="${lang() === 'vi'}">${FLAG_VN}</button>
@@ -219,9 +222,15 @@ function renderHeader() {
     renderHeader();
     window.Sound.play('tap');
   });
+  $('#music-btn').addEventListener('click', () => {
+    local.settings.music = !local.settings.music;
+    window.Sound.setMusic(local.settings.music);
+    saveLocal();
+    renderHeader();
+  });
   const out = $('#logout');
   if (out) out.addEventListener('click', doLogout);
-  $('#footer').textContent = t('footer');
+  $('#footer').innerHTML = `${esc(t('footer'))}<br><span class="credit">${esc(t('credit'))} · v${APP_VERSION}</span>`;
 }
 
 // Phím tắt của trang đang mở (trang làm bài Reading); đổi trang thì bỏ.

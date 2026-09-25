@@ -1,6 +1,7 @@
 /*
  * Hiệu ứng âm thanh, tạo bằng Web Audio (không cần file âm thanh).
  * Dùng: Sound.play('correct' | 'wrong' | 'star' | 'bonus' | 'tap' | 'finish'); Sound.setMuted(true).
+ * Nhạc nền (hộp nhạc nhẹ, lặp lại): Sound.setMusic(true | false).
  * Trình duyệt chỉ cho phát tiếng sau khi người dùng bấm vào trang — các âm đều phát sau một lần bấm.
  */
 window.Sound = (() => {
@@ -18,8 +19,8 @@ window.Sound = (() => {
   }
 
   // Một nốt: tần số (Hz, hoặc [từ, đến] để trượt), lúc bắt đầu (giây, tính từ bây giờ), độ dài, dạng sóng, âm lượng.
-  function note(ac, freq, at, dur, type = 'triangle', vol = 0.22) {
-    const t0 = ac.currentTime + at;
+  function note(ac, freq, at, dur, type = 'triangle', vol = 0.22, dest = ac.destination, abs = false) {
+    const t0 = abs ? at : ac.currentTime + at;
     const osc = ac.createOscillator();
     const gain = ac.createGain();
     osc.type = type;
@@ -32,7 +33,7 @@ window.Sound = (() => {
     gain.gain.setValueAtTime(0.0001, t0);
     gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.015);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.connect(gain).connect(ac.destination);
+    osc.connect(gain).connect(dest);
     osc.start(t0);
     osc.stop(t0 + dur + 0.02);
   }
@@ -72,7 +73,78 @@ window.Sound = (() => {
     }
   };
 
+  /* ---------- Nhạc nền ---------- */
+
+  // Vòng hợp âm C – Am – F – G, mỗi ô nhịp 8 nốt móc đơn rải hợp âm + một nốt trầm; giai điệu đổi qua 4 vòng.
+  const BEAT = 60 / 76 / 2;          // độ dài một nốt móc đơn (76 nhịp/phút)
+  const CHORDS = [
+    [261.63, 329.63, 392.0, 523.25],  // C
+    [220.0, 261.63, 329.63, 440.0],   // Am
+    [174.61, 220.0, 261.63, 349.23],  // F
+    [196.0, 246.94, 293.66, 392.0]    // G
+  ];
+  const ARP = [0, 2, 1, 2, 3, 2, 1, 2];
+  // Giai điệu: [ô nhịp, nốt thứ mấy trong ô, tần số, số nốt móc đơn]
+  const MELODY = [
+    [0, 0, 783.99, 3], [0, 4, 659.25, 2], [0, 6, 587.33, 2], [1, 0, 659.25, 4], [1, 4, 523.25, 4],
+    [2, 0, 523.25, 3], [2, 4, 587.33, 2], [2, 6, 659.25, 2], [3, 0, 587.33, 6],
+    [4, 0, 659.25, 2], [4, 2, 783.99, 2], [4, 4, 880.0, 4], [5, 0, 783.99, 4], [5, 4, 659.25, 4],
+    [6, 0, 698.46, 3], [6, 4, 659.25, 2], [6, 6, 587.33, 2], [7, 0, 523.25, 6]
+  ];
+  const LOOP_BARS = 8;
+  let musicOn = false, musicGain = null, timer = null, nextAt = 0, step = 0;
+
+  function scheduleMusic() {
+    const ac = ctx;
+    while (nextAt < ac.currentTime + 0.6) {
+      const bar = Math.floor(step / 8) % LOOP_BARS, pos = step % 8;
+      const chord = CHORDS[bar % 4];
+      note(ac, chord[ARP[pos]] * 2, nextAt, BEAT * 2.5, 'sine', 0.05, musicGain, true);
+      if (pos === 0) note(ac, chord[0] / 2, nextAt, BEAT * 7, 'triangle', 0.07, musicGain, true);
+      MELODY.filter(m => m[0] === bar && m[1] === pos)
+        .forEach(m => note(ac, m[2], nextAt, BEAT * m[3], 'triangle', 0.08, musicGain, true));
+      nextAt += BEAT;
+      step += 1;
+    }
+  }
+
+  function startMusic() {
+    if (timer || !musicOn || document.hidden) return;
+    const ac = audio();
+    if (!ac) return;
+    if (ac.state !== 'running') {   // chưa bấm vào trang: chờ trình duyệt cho phát tiếng
+      Promise.resolve(ac.resume()).then(() => { if (ac.state === 'running') startMusic(); }, () => {});
+      return;
+    }
+    if (!musicGain) {
+      musicGain = ac.createGain();
+      musicGain.gain.value = 0.5;
+      musicGain.connect(ac.destination);
+    }
+    nextAt = ac.currentTime + 0.1;
+    step = 0;
+    scheduleMusic();
+    timer = setInterval(scheduleMusic, 200);
+  }
+
+  function stopMusic() {
+    clearInterval(timer);
+    timer = null;
+    if (musicGain) {   // cắt các nốt đã hẹn trước: bỏ bộ khuếch đại cũ
+      musicGain.disconnect();
+      musicGain = null;
+    }
+  }
+
+  // Trình duyệt chỉ cho phát tiếng sau khi người dùng tương tác; ẩn tab thì dừng nhạc.
+  ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => { if (musicOn && !timer) startMusic(); }, true));
+  document.addEventListener('visibilitychange', () => (document.hidden ? stopMusic() : startMusic()));
+
   return {
+    setMusic(v) {
+      musicOn = !!v;
+      if (musicOn) startMusic(); else stopMusic();
+    },
     play(name) {
       if (muted || !SOUNDS[name]) return;
       try {
