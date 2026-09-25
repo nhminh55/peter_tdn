@@ -2,7 +2,7 @@
 /*
  * Seed chạy một lần: tách ngân hàng câu hỏi trong scripts/source/data.js thành 2 collection.
  *
- *   questions/{id}  { type: 'writing_cues', cues, topics, source: [{book, test}], order }
+ *   questions/{id}  { type: 'writing_cues', cues, topics, source: [{book, test} | {gen: true}], order }
  *                   ← đề bài, thành viên đọc được
  *   answers/{id}    { cues, answer, accept, defs, explanation: {vi, en} }
  *                   ← đáp án, chỉ đọc được sau khi đã nộp câu đó (xem firestore.rules)
@@ -95,8 +95,8 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }) {
         type: 'writing_cues',
         cues: q.cues,
         topics: q.topics,
-        // Firestore không lưu được mảng lồng nhau → [{book, test}]
-        source: q.src.map(([book, test]) => ({ book, test })),
+        // Firestore không lưu được mảng lồng nhau → [{book, test}]; câu tự soạn: 'gen' → {gen: true}
+        source: q.src.map(s => (s === 'gen' ? { gen: true } : { book: s[0], test: s[1] })),
         order
       }
     });
@@ -110,7 +110,7 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }) {
     questionIds.forEach(id => {
       if (!ids.has(id)) errors.push(`Exam b${book}-t${test}: unknown question ${id}`);
       const q = questions.find(x => x.id === id);
-      if (q && !q.src.some(([b, t]) => b === Number(book) && t === test)) errors.push(`Exam b${book}-t${test}: ${id} src mismatch`);
+      if (q && !q.src.some(s => Array.isArray(s) && s[0] === Number(book) && s[1] === test)) errors.push(`Exam b${book}-t${test}: ${id} src mismatch`);
     });
     examDocs.push({
       id: examIdFor(book, test),

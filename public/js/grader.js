@@ -1,13 +1,18 @@
 /*
  * Bộ chấm câu viết — chạy ở trình duyệt (window.Grader) và Node (require, dùng trong scripts/seed.js).
- *  1. Chuẩn hoá câu (chữ thường, bỏ dấu câu, mở viết tắt, gộp từ đồng nghĩa).
- *  2. So với các mẫu câu đúng `accept` của câu hỏi.
- *  3. Nếu sai: sinh các câu đúng từ mẫu, chọn câu gần nhất và dùng LCS theo từ
- *     để đánh dấu chỗ sai / chỗ thiếu. Nếu câu chỉ thừa từ so với câu đúng gần nhất
- *     (vd. thêm usually, very, my…) thì trả về các từ đó trong `extra`.
  *
- * Quy tắc chấm: chỉ được thêm từ ngữ pháp (trợ động từ, a/an/the, giới từ, liên từ,
- * to-V, chia thì, số nhiều). Mẫu `accept` không được chứa từ mang nghĩa mới ngoài gợi ý.
+ * Ràng buộc cứng: tối đa 15 từ; giữ đủ các từ gợi ý (được chia thì / đổi dạng / số nhiều);
+ * không tự thêm trạng từ thời gian / tần suất khi đề không có (yesterday, every day, usually…).
+ * Được thêm: mạo từ, giới từ, liên từ, trợ động từ, đại từ tân ngữ khi ngữ pháp cần (need it,
+ * give them to — ghi trong mẫu), tính từ sở hữu trước danh từ (my sister, their hands) và "very"
+ * trước tính từ (hai loại sau được chấp nhận tự động, xem fillerOptions).
+ *
+ * 4 bước (grade):
+ *  1. Đếm từ — quá 15 từ → sai, error 'TOO_LONG'.
+ *  2. Chuẩn hoá: chữ thường, bỏ dấu câu (dấu phẩy không bắt buộc), mở viết tắt, số 0–15 → chữ,
+ *     a.m./p.m. → am/pm, gộp từ đồng nghĩa.
+ *  3. So với các mẫu câu đúng `accept` → khớp là đúng.
+ *  4. Không khớp: chọn câu đúng gần nhất, so LCS theo từ để chỉ ra từ thiếu / sai / thừa.
  *
  * Cú pháp mẫu: (a|b) chọn một · [a] có hoặc không · [a|b] chọn a, b hoặc bỏ
  *              $NAME thay bằng defs.NAME · "," dấu phẩy (không bắt buộc khi chấm)
@@ -37,16 +42,23 @@ const SYNONYMS = [
   [/\bmt\b/g, 'mount'], [/\btelevision\b/g, 'tv'], [/\bschool bag\b/g, 'schoolbag'],
   [/\bmovie\b/g, 'film'], [/\bmovies\b/g, 'films'], [/\bill\b/g, 'sick'],
   [/\b(trash|garbage|litter)\b/g, 'rubbish'], [/\bbike\b/g, 'bicycle'],
-  [/\brefrigerator\b/g, 'fridge'], [/\bgymnasium\b/g, 'gym'], [/\b(mom|mum)\b/g, 'mother'],
-  [/\bfifteen\b/g, '15'], [/\bthree\b/g, '3'], [/\btwo\b/g, '2']
+  [/\brefrigerator\b/g, 'fridge'], [/\bgymnasium\b/g, 'gym'], [/\b(mom|mum)\b/g, 'mother']
 ];
+
+// Chữ số 0–15 → chữ (15 → fifteen); số lớn hơn (2020, 50…) giữ nguyên.
+const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+  'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen'];
 
 function normalize(text) {
   let s = String(text).toLowerCase()
     .replace(/[‘’ʼ`´]/g, "'")
-    .replace(/[“”]/g, '"');
+    .replace(/[“”]/g, '"')
+    // a.m. / p.m. / a.m / p. m. → am / pm (cần có dấu chấm để không đụng tới "I am")
+    .replace(/\b([ap])\.\s?m\b\.?/g, '$1m');
   CONTRACTIONS.forEach(([re, rep]) => { s = s.replace(re, rep); });
+  // Dấu câu (kể cả dấu ngắt giữa "Look! …", "Don't worry. …") → một khoảng trắng; dấu phẩy không bắt buộc.
   s = s.replace(/[.,!?;:"()\[\]…–—-]/g, ' ').replace(/\s+/g, ' ').trim();
+  s = s.replace(/\b(\d+)\b/g, (m, d) => NUMBER_WORDS[Number(d)] || m);
   SYNONYMS.forEach(([re, rep]) => { s = s.replace(re, rep); });
   return s;
 }
@@ -156,11 +168,50 @@ function compile(key) {
   return c;
 }
 
+/*
+ * Hư từ được tự do thêm dù mẫu không liệt kê:
+ *  - tính từ sở hữu trước danh từ (my sister, their hands, his flowers) — thay được cho a/an/the hoặc đứng thêm;
+ *  - "very" nhấn mạnh tính từ (is very nice, a very small dog) — như câu Example của đề.
+ * Chỉ xét các từ không có sẵn trong gợi ý; thử bỏ/thay từng từ rồi so lại với mẫu.
+ */
+const POSSESSIVES = ['my', 'our', 'their', 'her', 'his'];
+const BEFORE_ADJ = ['is', 'am', 'are', 'was', 'were', 'be', 'been', 'being', 'a', 'an', 'the', 'and',
+  'look', 'looks', 'looked', 'feel', 'feels', 'felt', 'seem', 'seems', 'become', 'became'];
+const MAX_FILLERS = 4;
+
+function fillerOptions(words, cueWords) {
+  const opts = [];
+  words.forEach((w, i) => {
+    if (cueWords.has(w)) return;
+    if (POSSESSIVES.includes(w) && i + 1 < words.length) opts.push({ i, alts: ['', 'the', 'a', 'an'] });
+    else if (w === 'very' && i > 0 && i + 1 < words.length && BEFORE_ADJ.includes(words[i - 1])) opts.push({ i, alts: [''] });
+  });
+  return opts.slice(0, MAX_FILLERS);
+}
+
 function isAccepted(key, text) {
   const n = normalize(text);
   if (!n) return false;
-  if (n === normalize(key.answer)) return true;
-  return compile(key).regexes.some(re => re.test(n + ' '));
+  const { regexes } = compile(key);
+  const test = s => s === normalize(key.answer) || regexes.some(re => re.test(s + ' '));
+  if (test(n)) return true;
+
+  const words = n.split(' ');
+  const opts = fillerOptions(words, new Set(normalize(key.cues || '').split(' ')));
+  if (!opts.length) return false;
+  // Thử mọi tổ hợp giữ / bỏ / thay (tối đa 5^4 = 625 lần).
+  const total = opts.reduce((p, o) => p * (o.alts.length + 1), 1);
+  for (let c = 1; c < total; c++) {
+    const w = words.slice();
+    let r = c;
+    opts.forEach(o => {
+      const k = r % (o.alts.length + 1);
+      r = Math.floor(r / (o.alts.length + 1));
+      if (k > 0) w[o.i] = o.alts[k - 1];
+    });
+    if (test(w.filter(Boolean).join(' '))) return true;
+  }
+  return false;
 }
 
 /* ---------- So sánh theo từ ---------- */
@@ -172,7 +223,13 @@ function tokenize(text) {
   })).filter(t => t.keys.length || /\w/.test(t.word));
 }
 
-function lcsMarks(a, b) {
+/*
+ * Căn hai dãy từ (đã chuẩn hoá) theo LCS rồi phân loại phần chênh lệch giữa hai từ khớp liền nhau:
+ *   có ở cả hai phía → wrong (dùng sai / chia sai, ghép cặp theo thứ tự)
+ *   chỉ ở câu của em → extra (từ thừa)      chỉ ở câu mẫu → missing (từ thiếu)
+ * Trả về nhãn cho từng từ của mỗi phía và danh sách cặp sai.
+ */
+function lcsDiff(a, b) {
   const n = a.length, m = b.length;
   const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
   for (let i = n - 1; i >= 0; i--) {
@@ -180,14 +237,26 @@ function lcsMarks(a, b) {
       dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
     }
   }
-  const inA = new Array(n).fill(false), inB = new Array(m).fill(false);
+  const kindA = new Array(n).fill('ok'), kindB = new Array(m).fill('ok');
+  const pairs = [];
+  let gapA = [], gapB = [];
+  const flush = () => {
+    const k = Math.min(gapA.length, gapB.length);
+    for (let x = 0; x < k; x++) { kindA[gapA[x]] = kindB[gapB[x]] = 'wrong'; pairs.push([gapA[x], gapB[x]]); }
+    gapA.slice(k).forEach(x => { kindA[x] = 'extra'; });
+    gapB.slice(k).forEach(x => { kindB[x] = 'missing'; });
+    gapA = []; gapB = [];
+  };
   let i = 0, j = 0;
   while (i < n && j < m) {
-    if (a[i] === b[j]) { inA[i] = inB[j] = true; i++; j++; }
-    else if (dp[i + 1][j] >= dp[i][j + 1]) i++;
-    else j++;
+    if (a[i] === b[j]) { flush(); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) gapA.push(i++);
+    else gapB.push(j++);
   }
-  return { inA, inB, len: dp[0][0] };
+  while (i < n) gapA.push(i++);
+  while (j < m) gapB.push(j++);
+  flush();
+  return { kindA, kindB, pairs, len: dp[0][0] };
 }
 
 function flatKeys(tokens) {
@@ -196,10 +265,27 @@ function flatKeys(tokens) {
   return { keys, owner };
 }
 
-function markTokens(tokens, flat, inFlat) {
-  const ok = tokens.map(t => t.keys.length > 0);
-  flat.owner.forEach((idx, k) => { if (!inFlat[k]) ok[idx] = false; });
-  return tokens.map((t, i) => ({ word: t.word, ok: ok[i] }));
+// Nhãn của một từ gõ = nhãn nặng nhất trong các phần của nó ("don't" = do + not).
+const KIND_RANK = { ok: 0, missing: 1, extra: 1, wrong: 2 };
+function markTokens(tokens, flat, kinds) {
+  const kind = tokens.map(t => (t.keys.length ? 'ok' : 'wrong'));
+  flat.owner.forEach((idx, k) => { if (KIND_RANK[kinds[k]] > KIND_RANK[kind[idx]]) kind[idx] = kinds[k]; });
+  return tokens.map((t, i) => ({ word: t.word, ok: kind[i] === 'ok', kind: kind[i] }));
+}
+
+const bare = w => w.replace(/^[^\wÀ-ỹ']+|[^\wÀ-ỹ']+$/g, '');
+const uniq = xs => xs.filter((x, i) => xs.indexOf(x) === i);
+
+// Tóm tắt lỗi theo từ: thiếu / sai (em viết → cần viết) / thừa.
+function diffSummary(best) {
+  const { userTokens, userFlat, ansTokens, ansFlat, d } = best;
+  const wrong = uniq(d.pairs.map(([i, j]) => `${bare(userTokens[userFlat.owner[i]].word)}→${bare(ansTokens[ansFlat.owner[j]].word)}`))
+    .map(p => { const [got, want] = p.split('→'); return { got, want }; });
+  return {
+    missing: uniq(ansFlat.owner.filter((_, k) => d.kindB[k] === 'missing').map(t => bare(ansTokens[t].word))),
+    wrong,
+    extra: uniq(userFlat.owner.filter((_, k) => d.kindA[k] === 'extra').map(t => bare(userTokens[t].word)))
+  };
 }
 
 // Lỗi hình thức, trả về mã để giao diện dịch: cap | q | dot | len
@@ -227,13 +313,19 @@ function sampleVariants(key, exclude, n) {
 
 /*
  * key: { cues, answer, accept, defs }
- * Trả về kết quả chấm kèm dữ liệu để client hiển thị phản hồi.
+ * Chấm theo 4 bước:
+ *   1. Đếm từ — quá 15 từ là sai yêu cầu (error: 'TOO_LONG'), không so mẫu nữa.
+ *   2. Chuẩn hoá (normalize).
+ *   3. Khớp một mẫu accept (kể cả khi thêm hư từ cho phép) → đúng nội dung.
+ *   4. Không khớp → tìm câu đúng gần nhất, so LCS theo từ để chỉ ra từ thiếu / sai / thừa.
+ * strict: đòi cả hình thức (viết hoa, dấu câu cuối).
  */
 function grade(key, text, strict) {
-  const contentOk = isAccepted(key, text);
-  const issues = formIssues(text, key.cues);
   const wordCount = countWords(text);
-  const correct = contentOk && wordCount <= MAX_WORDS && (!strict || issues.length === 0);
+  const tooLong = wordCount > MAX_WORDS;
+  const contentOk = !tooLong && isAccepted(key, text);
+  const issues = formIssues(text, key.cues);
+  const correct = contentOk && (!strict || issues.length === 0);
   const sameAsBook = normalize(text) === normalize(key.answer);
 
   let best = null;
@@ -243,28 +335,23 @@ function grade(key, text, strict) {
     [key.answer].concat(compile(key).variants).forEach(a => {
       const ansTokens = tokenize(a);
       const ansFlat = flatKeys(ansTokens);
-      const r = lcsMarks(userFlat.keys, ansFlat.keys);
-      const dist = userFlat.keys.length + ansFlat.keys.length - 2 * r.len;
-      if (!best || dist < best.dist) best = { a, ansTokens, ansFlat, r, dist, userTokens, userFlat };
+      const d = lcsDiff(userFlat.keys, ansFlat.keys);
+      const dist = userFlat.keys.length + ansFlat.keys.length - 2 * d.len;
+      if (!best || dist < best.dist) best = { a, ansTokens, ansFlat, d, dist, userTokens, userFlat };
     });
-  }
-
-  // Câu của em = một câu đúng + vài từ thêm vào → báo riêng các từ thừa ngoài gợi ý.
-  let extra = [];
-  if (best && best.r.len === best.ansFlat.keys.length && best.userFlat.keys.length > best.r.len) {
-    extra = markTokens(best.userTokens, best.userFlat, best.r.inA).filter(m => !m.ok).map(m => m.word);
   }
 
   return {
     correct,
     contentOk,
-    extra,
+    error: tooLong ? 'TOO_LONG' : null,
     sameAsBook,
     issues,
     wordCount,
     closest: best ? best.a : null,
-    userMarks: best ? markTokens(best.userTokens, best.userFlat, best.r.inA) : null,
-    answerMarks: best ? markTokens(best.ansTokens, best.ansFlat, best.r.inB) : null,
+    userMarks: best ? markTokens(best.userTokens, best.userFlat, best.d.kindA) : null,
+    answerMarks: best ? markTokens(best.ansTokens, best.ansFlat, best.d.kindB) : null,
+    diff: best ? diffSummary(best) : { missing: [], wrong: [], extra: [] },
     variants: sampleVariants(key, contentOk ? text : best.a, 3)
   };
 }

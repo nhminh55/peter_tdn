@@ -12,7 +12,7 @@ window.LESSONS = [
 <p>Đề thi: <i>Write complete sentences with the given cues. You must write <b>NO MORE THAN fifteen words</b> for each sentence.</i></p>
 <div class="ex">
   <div class="ex-cue">Katie / teacher / English / nice / kind //</div>
-  <div class="ex-ans">→ Katie<mark>'s</mark> teacher <mark>of</mark> English <mark>is</mark> nice <mark>and</mark> kind.</div>
+  <div class="ex-ans">→ Katie<mark>'s</mark> teacher <mark>of</mark> English <mark>is very</mark> nice <mark>and</mark> kind.</div>
 </div>
 <p>Những chữ được tô màu là chữ em phải <b>tự thêm vào</b>. Bài này chấm xem em có thêm đúng các chữ đó và chia đúng động từ không.</p>
 
@@ -26,15 +26,25 @@ window.LESSONS = [
   <li><b>Kiểm tra lại</b>: viết hoa chữ đầu câu, có dấu chấm (.) hoặc dấu chấm hỏi (?), không quá 15 từ.</li>
 </ol>
 
-<div class="warn"><b>Quy tắc cốt lõi: chỉ thêm từ ngữ pháp, không tự chế thêm thông tin</b>
-  <p><b>Được phép thêm:</b> trợ động từ (is/are, do/does, did, have, will…), mạo từ (a/an/the), giới từ (in/on/at/to/for…), liên từ (and/but/because…), <i>to</i> + V, và biến đổi động từ (chia thì, thêm s/es) hoặc danh từ (số nhiều).</p>
-  <p><b>Tuyệt đối không thêm từ mang nghĩa mới</b> không có trong gợi ý: <i>usually, always, often, very, really, please, right (now), about, some, any, every morning, yesterday, my/our/his…</i> Những từ này làm thay đổi nghĩa hoặc thời gian của hành động — giám khảo xem là <b>thêm từ tùy tiện ngoài yêu cầu</b> và chấm <b>sai</b> cả câu.</p>
+<div class="warn"><b>Quy tắc chấm: chỉ thêm hư từ, không tự chế thêm thông tin</b>
+  <p><b>Ràng buộc cứng</b> (sai một điều là mất điểm cả câu):</p>
+  <ul>
+    <li><b>Tối đa 15 từ</b>, tính cả mạo từ, giới từ, từ nối.</li>
+    <li><b>Giữ đủ mọi từ gợi ý</b> — chỉ được chia thì, đổi dạng từ hoặc thêm số nhiều, không được bỏ từ nào.</li>
+    <li><b>Không bịa thêm thời gian / tần suất</b> khi đề không có: <i>yesterday, every day, usually, often, always, now…</i> Không có <i>now, at the moment, Look!</i> thì cũng đừng tự dùng hiện tại tiếp diễn.</li>
+  </ul>
+  <p><b>Được tự do thêm:</b></p>
+  <ul>
+    <li>Từ ngữ pháp: mạo từ (a/an/the), giới từ (in/on/at/of/to/for…), liên từ (and/but/because/so…), trợ động từ (do/does/did, am/is/are, was/were, will, have/has), <i>to</i> + V.</li>
+    <li>Đại từ tân ngữ khi động từ cần tân ngữ: if you need <b>it</b>, give <b>them</b> to poor children.</li>
+    <li>Tính từ sở hữu trước danh từ đứng trơ trọi, nhất là người thân / bộ phận cơ thể: <b>my</b> sister, wash <b>their</b> hands, on <b>my</b> last birthday.</li>
+    <li><b>very</b> đi kèm tính từ, như câu mẫu của đề: Katie's teacher of English is <b>very</b> nice and kind.</li>
+  </ul>
   <ul>
     <li>She / visit / grandparents / twice / month → <s>She usually visits her grandparents twice a month.</s> → She visits her grandparents twice a month.</li>
-    <li>Minh / be / good / play / chess → <s>Minh is very good at playing chess.</s> → Minh is good at playing chess.</li>
-    <li>Could / you / show / me / way / post office? → <s>Could you please show me…</s> → Could you show me the way to the post office?</li>
+    <li>Nam / not go / school / because / he / be / sick → <s>Nam did not go to school yesterday because…</s> → Nam does not go to school because he is sick.</li>
+    <li>We / collect / old books… → <s>We are collecting old books…</s> → We <b>collect</b> old books…</li>
   </ul>
-  <p><b>Không tự ý dùng hiện tại tiếp diễn</b>: chỉ dùng khi đề có dấu hiệu đang diễn ra (<i>now, at the moment, Look!, Listen!</i>). Gợi ý <i>We / collect / old books…</i> không có dấu hiệu đó → <s>We are collecting</s> → We <b>collect</b>.</p>
 </div>
 
 <h3>Dấu hiệu → chọn thì</h3>
@@ -58,7 +68,7 @@ window.LESSONS = [
     <li>Không viết hoa chữ đầu câu, quên dấu chấm/chấm hỏi.</li>
   </ul>
 </div>
-<div class="tip">Một câu thường có <b>nhiều cách viết đúng</b>. Đổi vị trí cụm thời gian (<i>Last summer, …</i> / <i>… last summer</i>) hay dùng từ đồng nghĩa đúng đều được chấp nhận, miễn là đúng ngữ pháp, dùng đủ các gợi ý và <b>không thêm từ mang nghĩa mới</b>.</div>`
+<div class="tip">Một câu thường có <b>nhiều cách viết đúng</b>. Đổi vị trí cụm thời gian (<i>Last summer, …</i> / <i>… last summer</i>) hay dùng từ đồng nghĩa đúng đều được chấp nhận, miễn là đúng ngữ pháp, dùng đủ các gợi ý và <b>không bịa thêm thông tin</b> (thời gian, tần suất…).</div>`
   },
   {
     id: 'present-simple',

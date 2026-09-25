@@ -8,6 +8,7 @@ service-account*.json
 
 # Ngân hàng câu hỏi có đáp án: chỉ để trên máy, seed.js đọc file này
 scripts/source/data.js
+scripts/source/NEW_QUESTIONS.js
 
 # Danh sách tài khoản có email cá nhân (mẫu: scripts/users.example.json)
 scripts/users.json

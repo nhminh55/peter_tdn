@@ -16,6 +16,7 @@
   --bad-soft: #fde8ef;
   --warn-soft: #fff6e0;
   --warn-line: #f2c46b;
+  --warn: #b45309;
   --learn: #0c8599;
   --learn-soft: #e3f7fa;
   --shadow: 0 1px 2px rgba(20, 30, 70, .06), 0 6px 20px rgba(20, 30, 70, .06);
@@ -42,6 +43,7 @@
     --bad-soft: #3b2130;
     --warn-soft: #362f1c;
     --warn-line: #7a6330;
+    --warn: #f5b041;
     --learn: #66d9e8;
     --learn-soft: #173238;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
@@ -367,6 +369,8 @@ kbd { background: var(--surface-2); border: 1px solid var(--line); border-bottom
 .w { border-radius: 5px; padding: 0 2px; }
 .w.wrong { background: var(--bad-soft); color: var(--bad); text-decoration: line-through; text-decoration-thickness: 2px; }
 .w.missing { background: var(--ok-soft); color: var(--ok); border-bottom: 2px solid var(--ok); }
+.w.extra { background: var(--warn-soft); color: var(--warn); text-decoration: line-through; text-decoration-style: wavy; }
+.diff { margin: 8px 0 0; padding-left: 20px; font-size: .95em; line-height: 1.9; }
 .legend { font-size: .82rem; color: var(--muted); }
 .legend .w { text-decoration: none; }
 .alts { margin-top: 12px; font-size: .95rem; }

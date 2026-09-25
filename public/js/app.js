@@ -88,7 +88,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const pct = (c, a) => a ? Math.round(c * 100 / a) : 0;
 const countWords = text => String(text).trim().split(/\s+/).filter(w => /[\wÀ-ỹ]/.test(w)).length;
-const sourceLabel = source => source.map(s => t('src_item', { b: s.book, d: s.test })).join(' | ');
+const sourceLabel = source => source.map(s => (s.gen ? '[gen]' : t('src_item', { b: s.book, d: s.test }))).join(' | ');
 const questionsForTopic = id => QUESTIONS.filter(q => q.topics.includes(id));
 const qstat = id => (profile.qstats || {})[id];
 const wrongIds = () => QUESTIONS.filter(q => qstat(q.id) && qstat(q.id).last === false).map(q => q.id);
@@ -555,8 +555,20 @@ function nextQuestion() {
   viewPracticeRun();
 }
 
-function markedSentence(marks, cls) {
-  return marks.map(m => `<span class="${m.ok ? 'w' : 'w ' + cls}">${esc(m.word)}</span>`).join(' ');
+// kind: ok | wrong | extra | missing (xem Grader.lcsDiff)
+function markedSentence(marks) {
+  return marks.map(m => `<span class="${m.ok ? 'w' : 'w ' + (m.kind || 'wrong')}">${esc(m.word)}</span>`).join(' ');
+}
+
+// Tóm tắt lỗi theo từ: thiếu / dùng sai / thừa.
+function diffHtml(d) {
+  if (!d) return '';
+  const w = (x, cls) => `<span class="w ${cls}">${esc(x)}</span>`;
+  const rows = [];
+  if (d.missing.length) rows.push(`<li>${t('diff_missing')} ${d.missing.map(x => w(x, 'missing')).join(' ')}</li>`);
+  if (d.wrong.length) rows.push(`<li>${t('diff_wrong')} ${d.wrong.map(p => `${w(p.got, 'wrong')} → ${w(p.want, 'missing')}`).join(', ')}</li>`);
+  if (d.extra.length) rows.push(`<li>${t('diff_extra')} ${d.extra.map(x => w(x, 'extra')).join(' ')}</li>`);
+  return rows.length ? `<ul class="diff">${rows.join('')}</ul>` : '';
 }
 
 const issueText = issue => t('issue_' + issue.code, { n: issue.n });
@@ -566,6 +578,8 @@ function feedbackHtml(r) {
   let banner;
   if (r.correct) {
     banner = `<div class="banner ok"><span class="b-icon">🎉</span><div><b>${t('fb_ok')}</b> +1 ★${r.bonus ? ` <span class="bonus">${t('fb_bonus', { b: STREAK_BONUS_STARS, e: STREAK_BONUS_EVERY })}</span>` : ''}${r.sameAsBook ? '' : `<div class="banner-sub">${t('fb_ok_variant')}</div>`}</div></div>`;
+  } else if (r.error === 'TOO_LONG') {
+    banner = `<div class="banner bad"><span class="b-icon">✂️</span><div>${t('fb_long', { n: r.wordCount })}</div></div>`;
   } else if (r.contentOk) {
     banner = `<div class="banner bad"><span class="b-icon">✋</span><div>${t('fb_form')}</div></div>`;
   } else {
@@ -574,8 +588,9 @@ function feedbackHtml(r) {
 
   const compare = !r.contentOk && r.userMarks ? `
     <div class="compare">
-      <div class="cmp-row"><span class="cmp-label">${t('cmp_yours')}</span><div class="cmp-text">${markedSentence(r.userMarks, 'wrong')}</div></div>
-      <div class="cmp-row"><span class="cmp-label">${t('cmp_closest')}</span><div class="cmp-text">${markedSentence(r.answerMarks, 'missing')}</div></div>
+      <div class="cmp-row"><span class="cmp-label">${t('cmp_yours')}</span><div class="cmp-text">${markedSentence(r.userMarks)}</div></div>
+      <div class="cmp-row"><span class="cmp-label">${t('cmp_closest')}</span><div class="cmp-text">${markedSentence(r.answerMarks)}</div></div>
+      ${diffHtml(r.diff)}
       ${r.closest !== r.answer ? `<div class="cmp-row"><span class="cmp-label">${t('cmp_book')}</span><div class="cmp-text book">${esc(r.answer)}</div></div>` : ''}
       <div class="legend">${t('legend')}</div>
     </div>` : `
@@ -588,8 +603,7 @@ function feedbackHtml(r) {
   return `
     <section class="feedback ${r.correct ? 'is-ok' : 'is-bad'}">
       ${banner}
-      ${r.issues.length ? `<div class="issues"><b>${r.correct ? t('issues_note') : t('issues_err')}</b><ul>${r.issues.map(i => `<li>${issueText(i)}</li>`).join('')}</ul></div>` : ''}
-      ${r.extra && r.extra.length ? `<div class="issues"><b>${t('extra_title')}</b> ${t('extra_body', { w: r.extra.map(w => `<span class="w wrong">${esc(w)}</span>`).join(' ') })}</div>` : ''}
+      ${r.issues.length ? `<div class="issues"><b>${r.correct ? t('issues_note') : t('issues_err')}</b><ul>${r.issues.filter(i => !(r.error === 'TOO_LONG' && i.code === 'len')).map(i => `<li>${issueText(i)}</li>`).join('')}</ul></div>` : ''}
       ${compare}
       ${r.variants && r.variants.length ? `<div class="alts"><b>${t('alts_title')}</b><ul>${r.variants.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
       <div class="why">

@@ -36,7 +36,8 @@ const test = (name, fn) => tests.push({ name, fn });
 test('public questions carry no answer data', () => {
   built.questionDocs.forEach(({ id, data }) => {
     assert.deepStrictEqual(Object.keys(data).sort(), ['cues', 'order', 'source', 'topics', 'type'], id);
-    assert.ok(Array.isArray(data.source) && data.source.every(s => typeof s.book === 'number' && typeof s.test === 'number'), id);
+    assert.ok(Array.isArray(data.source) && data.source.length, id);
+    assert.ok(data.source.every(s => (s.gen === true && Object.keys(s).length === 1) || (typeof s.book === 'number' && typeof s.test === 'number')), id);
   });
 });
 
@@ -99,18 +100,61 @@ test('strict mode: content right but form wrong is not correct', () => {
   assert.deepStrictEqual(out.result.issues.map(i => i.code), ['cap', 'dot']);
 });
 
-test('adding meaning words outside the cues is wrong and reported as extra', () => {
+test('step 1: more than 15 words is TOO_LONG and wrong', () => {
+  const r = Grader.grade(KEYS.w01, 'Why were you late for school this morning when all of your friends were there on time?', false);
+  assert.strictEqual(r.correct, false);
+  assert.strictEqual(r.error, 'TOO_LONG');
+  assert.ok(r.issues.some(i => i.code === 'len' && i.n > 15));
+  assert.strictEqual(Grader.grade(KEYS.w01, KEYS.w01.answer, true).error, null);
+});
+
+test('step 2: normalization of numbers, a.m./p.m., contractions and sentence breaks', () => {
+  assert.strictEqual(Grader.normalize('It takes me 15 minutes.'), Grader.normalize('It takes me fifteen minutes'));
+  assert.strictEqual(Grader.normalize('at 8 p.m.'), Grader.normalize('at eight pm'));
+  assert.strictEqual(Grader.normalize("Look! It's raining, isn't it?"), 'look it is raining is not it');
+  assert.strictEqual(Grader.normalize('I am in 2020'), 'i am in 2020');
+  assert.ok(Grader.grade(KEYS.w48, 'It takes me fifteen minutes to walk to school.', true).correct);
+});
+
+test('commas in patterns and answers are optional, with or without spaces', () => {
+  const key = { cues: 'My sister / like / cats / but / she / not like / dogs', answer: 'My sister likes cats but she does not like dogs.',
+    accept: ['My sister likes cats , but she does not like dogs'], defs: {} };
+  ['My sister likes cats but she does not like dogs.', 'My sister likes cats, but she does not like dogs.',
+   'My sister likes cats , but she does not like dogs.', 'My sister likes cats,but she does not like dogs.',
+   'My sister likes cats ,but she doesn\'t like dogs.']
+    .forEach(t => assert.ok(Grader.grade(key, t, true).correct, t));
+  assert.ok(Grader.grade(KEYS.w05, 'Last summer, my family visited Da Lat by car.', true).correct);
+  assert.ok(Grader.grade(KEYS.w05, 'Last summer my family visited Da Lat by car.', true).correct);
+});
+
+test('allowed additions: possessive before a noun, "very" before an adjective', () => {
   [
-    ['w15', 'She usually visits her grandparents twice a month.', ['usually']],
-    ['w28', 'Minh is very good at playing chess.', ['very']],
-    ['w03', 'Could you please show me the way to the post office?', ['please']],
-    ['w04', 'My grandfather is watering his flowers at the moment.', null]
-  ].forEach(([id, text, extra]) => {
+    ['w04', 'My grandfather is watering his flowers at the moment.'],
+    ['w28', 'Minh is very good at playing chess.'],
+    ['w52', 'People in my village are very friendly and helpful.'],
+    ['w65', 'The students were cleaning their classroom when their teacher came.']
+  ].forEach(([id, text]) => assert.ok(Grader.grade(KEYS[id], text, true).correct, text));
+  // sai tính từ sở hữu vẫn sai
+  assert.strictEqual(Grader.grade(KEYS.w15, 'She visits his grandparents twice a month.', true).correct, false);
+});
+
+test('invented time / frequency words are wrong and reported as extra', () => {
+  [
+    ['w15', 'She usually visits her grandparents twice a month.', 'usually'],
+    ['w03', 'Could you please show me the way to the post office?', 'please'],
+    ['w14', 'My brother is the tallest student in his class every year.', 'every']
+  ].forEach(([id, text, word]) => {
     const r = Grader.grade(KEYS[id], text, false);
     assert.strictEqual(r.correct, false, text);
-    if (extra) assert.deepStrictEqual(r.extra, extra, text);
+    assert.ok(r.diff.extra.includes(word), text + ' → ' + JSON.stringify(r.diff));
   });
-  assert.deepStrictEqual(Grader.grade(KEYS.w15, KEYS.w15.answer, true).extra, []);
+});
+
+test('step 4: diff sorts differences into missing / wrong / extra', () => {
+  const d = Grader.grade(KEYS.w30, 'They watch interesting film on TV last night.', false).diff;
+  assert.deepStrictEqual(d.wrong, [{ got: 'watch', want: 'watched' }]);
+  assert.deepStrictEqual(d.missing, ['an']);
+  assert.deepStrictEqual(d.extra, []);
 });
 
 test('present continuous without a "now" cue is wrong', () => {
@@ -118,7 +162,7 @@ test('present continuous without a "now" cue is wrong', () => {
 });
 
 test('no accept pattern allows meaning words that are not in the cues', () => {
-  const BANNED = ['usually', 'always', 'often', 'very', 'really', 'please', 'right', 'about', 'some', 'any', 'again', 'only'];
+  const BANNED = ['usually', 'always', 'often', 'really', 'please', 'right', 'about', 'some', 'any', 'again', 'only'];
   built.answerDocs.forEach(({ id, data }) => {
     const cues = Grader.normalize(data.cues).split(' ');
     const words = new Set([data.answer].concat(Grader.compile(data).variants).flatMap(v => Grader.normalize(v).split(' ')));
