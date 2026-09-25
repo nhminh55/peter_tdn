@@ -255,6 +255,15 @@ a.skill:hover { transform: translateY(-3px); border-color: var(--primary); }
   padding: 14px 18px; border-radius: 14px; background: var(--star-soft); margin-bottom: 16px;
   border: 1px solid color-mix(in srgb, var(--star) 40%, transparent);
 }
+.daily { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 18px 20px; border-radius: 16px; background: var(--surface); border: 2px solid var(--primary); }
+.daily h3 { margin: 0 0 6px; }
+.daily p { margin: 0; color: var(--muted); font-size: .92rem; }
+.daily .daily-status { margin-top: 8px; color: var(--text); }
+.daily-main { flex: 1 1 320px; }
+.daily-side { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.daily-n { display: flex; gap: 8px; align-items: center; font-size: .92rem; color: var(--muted); }
+.daily-n input { width: 64px; padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); font: inherit; }
+.sum-note { color: var(--muted); }
 .setup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
 .setup-card {
   display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 16px;

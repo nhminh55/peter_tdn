@@ -60,10 +60,12 @@
     stats.totalAnswered += 1;
     stats.stars += stars;
 
+    // a: số lần làm · c: số lần đúng · last: lần gần nhất đúng/sai · at: thời điểm lần gần nhất (ms)
     const qs = Object.assign({ a: 0, c: 0, last: null }, stats.qstats[questionId]);
     qs.a += 1;
     if (g.correct) qs.c += 1;
     qs.last = g.correct;
+    qs.at = now;
     stats.qstats[questionId] = qs;
 
     details.push({
@@ -102,6 +104,35 @@
     };
   }
 
+  /*
+   * Chọn n câu cho "Luyện mỗi ngày" từ ngân hàng đề, dựa vào qstats:
+   *   1. câu lần gần nhất làm sai (sai lâu nhất trước) — tối đa một nửa (làm tròn lên);
+   *   2. câu chưa làm bao giờ;
+   *   3. câu đã đúng, lâu chưa ôn nhất trước;
+   * nếu vẫn chưa đủ thì lấy thêm câu sai. exclude: các câu đã có trong lượt hôm nay.
+   * rand: hàm ngẫu nhiên [0,1) (để test cố định được).
+   */
+  function pickDaily({ questionIds, qstats, n, exclude, rand }) {
+    const r = rand || Math.random;
+    const skip = new Set(exclude || []);
+    const pool = questionIds.filter(id => !skip.has(id));
+    const st = id => (qstats || {})[id];
+    const at = id => (st(id) && st(id).at) || 0;
+    // Trộn trước rồi sắp xếp ổn định → các câu "ngang nhau" ra thứ tự ngẫu nhiên.
+    const mixed = pool.map(id => [r(), id]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+    const wrong = mixed.filter(id => st(id) && st(id).last === false).sort((a, b) => at(a) - at(b));
+    const fresh = mixed.filter(id => !st(id) || !st(id).a);
+    const known = mixed.filter(id => st(id) && st(id).a && st(id).last !== false).sort((a, b) => at(a) - at(b));
+    const size = Math.max(0, Math.min(n, pool.length));
+    const out = wrong.slice(0, Math.ceil(size / 2));
+    for (const id of fresh.concat(known, wrong)) {
+      if (out.length >= size) break;
+      if (!out.includes(id)) out.push(id);
+    }
+    // Không để các câu sai dồn hết lên đầu lượt.
+    return out.map(id => [r(), id]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  }
+
   function pick(obj, keys) {
     const out = {};
     keys.forEach(k => { if (obj && obj[k] !== undefined) out[k] = obj[k]; });
@@ -109,7 +140,7 @@
   }
 
   return {
-    applyAnswer, EMPTY_STATS, USER_STATS,
+    applyAnswer, pickDaily, EMPTY_STATS, USER_STATS,
     STREAK_BONUS_EVERY, STREAK_BONUS_STARS, MAX_STARS_PER_ANSWER, MAX_DETAILS_PER_SUBMISSION
   };
 });

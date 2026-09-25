@@ -26,7 +26,8 @@ let guest = false;    // đang dùng thử, không đăng nhập
 const STORAGE_KEY = 'tdn-english-v2';
 
 function localDefaults() {
-  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false }, session: null, guestProfile: null };
+  // daily: bộ câu "Luyện mỗi ngày" đã giao hôm nay { uid, date, ids }
+  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10 }, session: null, guestProfile: null, daily: null };
 }
 
 let storageOk = true;
@@ -38,7 +39,8 @@ function loadLocal() {
     return {
       settings: Object.assign(localDefaults().settings, data.settings),
       session: data.session || null,
-      guestProfile: data.guestProfile || null
+      guestProfile: data.guestProfile || null,
+      daily: data.daily || null
     };
   } catch (e) {
     storageOk = false;
@@ -106,6 +108,7 @@ function sessionLabel(s) {
   if (k.mode === 'exam') { const [b, d] = k.value.split('-'); return t('exam', { b, d }); }
   if (k.mode === 'wrong') return t('label_wrong');
   if (k.mode === 'retry') return t('label_retry');
+  if (k.mode === 'daily') return t('label_daily');
   return t('label_all');
 }
 
@@ -300,6 +303,64 @@ function viewLesson(id) {
   if (btn) btn.addEventListener('click', () => startSession('topic', id));
 }
 
+/* ---------- Luyện mỗi ngày ---------- */
+
+const DAILY_MAX = 50;
+const pad2 = n => String(n).padStart(2, '0');
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const dailyN = () => Math.min(DAILY_MAX, Math.max(1, Math.round(Number(local.settings.dailyN) || 10)));
+const dailyPlan = () => (local.daily && local.daily.uid === sessionOwner() && local.daily.date === todayKey() ? local.daily : null);
+
+// Số câu đã làm hôm nay (mọi chế độ), tính từ qstats trên Firestore nên đổi máy vẫn đúng.
+function todayStats() {
+  const from = startOfToday();
+  const done = Object.values(profile.qstats || {}).filter(s => s && s.at >= from);
+  return { done: done.length, correct: done.filter(s => s.last).length };
+}
+
+function dailyCard() {
+  const s = local.session;
+  const running = s && s.uid === sessionOwner() && s.kind && s.kind.mode === 'daily'
+    && s.kind.value === todayKey() && s.i < s.ids.length;
+  const plan = dailyPlan();
+  const today = todayStats();
+  const wrong = wrongIds().length;
+  const fresh = QUESTIONS.filter(q => !qstat(q.id) || !qstat(q.id).a).length;
+  let status = '', btn;
+  if (running) {
+    status = t('daily_running', { i: s.results.length, n: s.ids.length });
+    btn = `<a class="btn primary" href="#/writing/practice/run">${t('resume_btn')}</a>`;
+  } else {
+    if (today.done) status = t('daily_today', { n: today.done, c: today.correct });
+    btn = `<button class="btn primary" id="daily-start">${t(plan ? 'daily_more' : 'daily_start', { n: dailyN() })}</button>`;
+  }
+  return `
+    <section class="daily">
+      <div class="daily-main">
+        <h3>${t('daily_title')}</h3>
+        <p>${t('daily_desc', { w: wrong, f: fresh })}</p>
+        ${status ? `<p class="daily-status">${status}</p>` : ''}
+      </div>
+      <div class="daily-side">
+        <label class="daily-n">${t('daily_n')} <input type="number" id="daily-n" min="1" max="${DAILY_MAX}" value="${dailyN()}" ${running ? 'disabled' : ''}></label>
+        ${btn}
+      </div>
+    </section>`;
+}
+
+// Chọn câu cho hôm nay (không lặp lại các câu đã giao trong ngày) rồi bắt đầu lượt.
+function startDaily() {
+  const plan = dailyPlan();
+  const all = QUESTIONS.map(q => q.id);
+  let exclude = plan ? plan.ids : [];
+  let ids = window.Scoring.pickDaily({ questionIds: all, qstats: profile.qstats, n: dailyN(), exclude });
+  if (!ids.length) { exclude = []; ids = window.Scoring.pickDaily({ questionIds: all, qstats: profile.qstats, n: dailyN() }); }
+  if (!ids.length) return;
+  local.daily = { uid: sessionOwner(), date: todayKey(), ids: exclude.concat(ids) };
+  startSession('daily', ids);
+}
+
 /* ---------- Practice: chọn cách luyện ---------- */
 
 function viewPracticeSetup() {
@@ -359,10 +420,11 @@ function viewPracticeSetup() {
 
   page(`
     ${head}
+    ${dailyCard()}
     <section class="setup-grid">
       <div class="setup-card">
         <h3>${t('setup_all')}</h3>
-        <p>${t('setup_all_desc', { n: QUESTIONS.length })}</p>
+        <p>${t('setup_all_desc', { n: QUESTIONS.length, g: QUESTIONS.filter(q => q.source.some(x => x.gen)).length })}</p>
         <button class="btn primary" data-mode="all">${t('start')}</button>
       </div>
       <div class="setup-card">
@@ -384,6 +446,19 @@ function viewPracticeSetup() {
 function bindPracticeSetup() {
   $('#opt-random').addEventListener('change', e => { local.settings.order = e.target.checked ? 'random' : 'seq'; saveLocal(); });
   $('#opt-strict').addEventListener('change', e => { local.settings.strict = e.target.checked; saveLocal(); });
+  const nInput = $('#daily-n');
+  if (nInput) {
+    nInput.addEventListener('input', () => {
+      if (!nInput.value) return;
+      local.settings.dailyN = nInput.value;
+      saveLocal();
+      const b = $('#daily-start');
+      if (b) b.textContent = t(dailyPlan() ? 'daily_more' : 'daily_start', { n: dailyN() });
+    });
+    nInput.addEventListener('change', () => { nInput.value = dailyN(); });
+  }
+  const daily = $('#daily-start');
+  if (daily) daily.addEventListener('click', startDaily);
   $$('[data-mode]').forEach(b => b.addEventListener('click', () => {
     const mode = b.dataset.mode;
     if (mode === 'topic') startSession('topic', $('#sel-topic').value);
@@ -399,11 +474,12 @@ function startSession(mode, value) {
   else if (mode === 'exam') { const [b, d] = value.split('-'); examId = examKey(b, d); ids = (EXAMS[examId] || {}).questionIds || []; }
   else if (mode === 'wrong') { examId = 'all'; ids = wrongIds(); }
   else if (mode === 'retry') { examId = 'all'; ids = value; }
+  else if (mode === 'daily') { examId = 'all'; ids = value; value = todayKey(); }
   else { mode = 'all'; examId = 'all'; ids = (EXAMS.all || {}).questionIds || QUESTIONS.map(q => q.id); }
   ids = ids.filter(id => Q_BY_ID[id]);
   if (!ids.length) return;
   if (guest) examId = 'trial';
-  if (local.settings.order === 'random' && mode !== 'exam') ids = shuffle(ids);
+  if (local.settings.order === 'random' && mode !== 'exam' && mode !== 'daily') ids = shuffle(ids);
   local.session = {
     uid: sessionOwner(),
     kind: { mode, value: mode === 'retry' ? null : value },
@@ -555,9 +631,11 @@ function nextQuestion() {
   viewPracticeRun();
 }
 
-// kind: ok | wrong | extra | missing (xem Grader.lcsDiff)
-function markedSentence(marks) {
-  return marks.map(m => `<span class="${m.ok ? 'w' : 'w ' + (m.kind || 'wrong')}">${esc(m.word)}</span>`).join(' ');
+// kind: ok | wrong | extra | missing (xem Grader.lcsDiff).
+// Ở câu mẫu (answer), từ "wrong" là từ đúng cần viết → tô xanh như từ thiếu, không gạch.
+function markedSentence(marks, answer) {
+  const cls = m => (answer ? 'missing' : m.kind || 'wrong');
+  return marks.map(m => `<span class="${m.ok ? 'w' : 'w ' + cls(m)}">${esc(m.word)}</span>`).join(' ');
 }
 
 // Tóm tắt lỗi theo từ: thiếu / dùng sai / thừa.
@@ -589,7 +667,7 @@ function feedbackHtml(r) {
   const compare = !r.contentOk && r.userMarks ? `
     <div class="compare">
       <div class="cmp-row"><span class="cmp-label">${t('cmp_yours')}</span><div class="cmp-text">${markedSentence(r.userMarks)}</div></div>
-      <div class="cmp-row"><span class="cmp-label">${t('cmp_closest')}</span><div class="cmp-text">${markedSentence(r.answerMarks)}</div></div>
+      <div class="cmp-row"><span class="cmp-label">${t('cmp_closest')}</span><div class="cmp-text">${markedSentence(r.answerMarks, true)}</div></div>
       ${diffHtml(r.diff)}
       ${r.closest !== r.answer ? `<div class="cmp-row"><span class="cmp-label">${t('cmp_book')}</span><div class="cmp-text book">${esc(r.answer)}</div></div>` : ''}
       <div class="legend">${t('legend')}</div>
@@ -627,6 +705,7 @@ function viewSummary() {
       <div class="sum-stars">★ +${s.starsEarned}</div>
       <h1>${msg}</h1>
       <p>${t('sum_detail', { label: esc(sessionLabel(s)), c: correct, t: total, p })}</p>
+      ${s.kind && s.kind.mode === 'daily' && wrongInSession.length ? `<p class="sum-note">${t('sum_daily_note', { n: wrongInSession.length })}</p>` : ''}
       <div class="sum-actions">
         ${wrongInSession.length ? `<button class="btn primary" id="retry">${t('sum_retry', { n: wrongInSession.length })}</button>` : ''}
         <a class="btn ${wrongInSession.length ? 'ghost' : 'primary'}" href="#/writing/practice">${t('sum_new')}</a>

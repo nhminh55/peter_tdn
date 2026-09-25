@@ -189,6 +189,38 @@ test('no accept pattern allows meaning words that are not in the cues', () => {
   });
 });
 
+test('qstats records when each question was last answered', () => {
+  const st = fresh();
+  answer(st, 'w01', KEYS.w01.answer);
+  assert.ok(st.profile.qstats.w01.at > 0);
+});
+
+test('daily practice: wrong answers first (up to half), then new, then least recently reviewed', () => {
+  let seed = 1;
+  const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const ids = Array.from({ length: 30 }, (_, i) => 'q' + i);
+  const qstats = {
+    q0: { a: 1, c: 0, last: false, at: 300 }, q1: { a: 2, c: 1, last: false, at: 100 },
+    q2: { a: 1, c: 0, last: false, at: 200 }, q3: { a: 1, c: 1, last: true, at: 50 }
+  };
+  ids.slice(4, 25).forEach((id, i) => { qstats[id] = { a: 1, c: 1, last: true, at: 1000 + i }; });
+  // q25–q29 chưa làm
+  const pick = Scoring.pickDaily({ questionIds: ids, qstats, n: 10, rand });
+  assert.strictEqual(pick.length, 10);
+  assert.strictEqual(new Set(pick).size, 10);
+  ['q0', 'q1', 'q2'].forEach(id => assert.ok(pick.includes(id), id));        // cả 3 câu sai (≤ 5)
+  ['q25', 'q26', 'q27', 'q28', 'q29'].forEach(id => assert.ok(pick.includes(id), id)); // câu chưa làm
+  assert.ok(pick.includes('q3') && pick.includes('q4'));                   // rồi câu lâu chưa ôn nhất
+  // Nhiều câu sai: chỉ chiếm một nửa lượt
+  const many = Object.fromEntries(ids.map(id => [id, { a: 1, c: 0, last: false, at: 1 }]));
+  ids.slice(20).forEach(id => { delete many[id]; });
+  const p2 = Scoring.pickDaily({ questionIds: ids, qstats: many, n: 10, rand });
+  assert.strictEqual(p2.filter(id => many[id]).length, 5);
+  // Không lặp lại câu đã giao hôm nay; ngân hàng nhỏ hơn n
+  const p3 = Scoring.pickDaily({ questionIds: ids.slice(0, 6), qstats, n: 10, exclude: ['q0', 'q1'], rand });
+  assert.deepStrictEqual(p3.slice().sort(), ['q2', 'q3', 'q4', 'q5']);
+});
+
 test('every exam references existing questions', () => {
   built.examDocs.forEach(({ id, data }) => data.questionIds.forEach(q => assert.ok(QUESTIONS[q], `${id}: ${q}`)));
 });
