@@ -99,6 +99,8 @@ const isGen = q => q.source.some(s => s.gen);
 const inPool = (q, p = pool()) => p === 'all' || (p === 'gen') === isGen(q);
 const poolQuestions = (p = pool()) => QUESTIONS.filter(q => inPool(q, p));
 const poolTopic = id => questionsForTopic(id).filter(q => inPool(q));
+// Lượt làm dở thuộc nguồn câu đang chọn không (lượt theo đề / ôn câu sai thì luôn thuộc).
+const sessionInPool = s => !s.kind || !['all', 'topic', 'daily'].includes(s.kind.mode) || (s.kind.pool || 'all') === pool();
 const qstat = id => (profile.qstats || {})[id];
 const wrongIds = () => QUESTIONS.filter(q => qstat(q.id) && qstat(q.id).last === false).map(q => q.id);
 const cuesHtml = cues => cues.replace(/\s*\/\/\s*$/, '').split('/').map(c => `<span class="cue">${esc(c.trim())}</span>`).join('<span class="slash">/</span>');
@@ -330,7 +332,7 @@ function todayStats() {
 function dailyCard() {
   const s = local.session;
   const running = s && s.uid === sessionOwner() && s.kind && s.kind.mode === 'daily'
-    && s.kind.value === todayKey() && s.i < s.ids.length;
+    && s.kind.value === todayKey() && s.i < s.ids.length && sessionInPool(s);
   const plan = dailyPlan();
   const today = todayStats();
   const wrong = wrongIds().filter(id => inPool(Q_BY_ID[id])).length;
@@ -373,7 +375,8 @@ function startDaily() {
 
 function viewPracticeSetup() {
   const s = local.session;
-  const unfinished = s && s.i < s.ids.length;
+  // Lượt dở của nguồn khác thì ẩn (vẫn giữ, chọn lại nguồn đó là thấy) — tránh bấm "Làm tiếp" lại ra câu cũ.
+  const unfinished = s && s.i < s.ids.length && sessionInPool(s);
   const wrong = wrongIds().length;
   const topicOptions = LESSONS.filter(l => poolTopic(l.id).length)
     .map(l => `<option value="${l.id}">${esc(t('topic_option', { title: lessonText(l).title, n: poolTopic(l.id).length }))}</option>`).join('');
