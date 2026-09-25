@@ -1,3 +1,10 @@
 resources/*.pdf
 .DS_Store
 Thumbs.db
+node_modules/
+*.log
+service-account*.json
+.firebase/
+
+# Ngân hàng câu hỏi có đáp án: chỉ để trên máy, seed.js đọc file này
+scripts/source/data.js

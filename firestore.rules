@@ -1,0 +1,125 @@
+rules_version = '2';
+
+// Gói Spark: không có Cloud Functions, client tự chấm. Rules bảo vệ theo cách "nộp trước, xem sau":
+//   - Đề (questions, exams): thành viên đọc được.
+//   - Đáp án answers/{qid}: chỉ đọc được TỪNG câu, sau khi đã ghi câu trả lời của mình vào
+//     answerUnlocks/{uid}_{qid} (không sửa, không xoá được). Không cho list → không tải hàng loạt.
+//   - users/{uid}: client tự cộng sao nhưng mỗi lần ghi chỉ được +1 lượt trả lời và tối đa +6 sao.
+//   - submissions: của ai người đó ghi / đọc; mỗi lần cập nhật chỉ thêm đúng 1 câu.
+//
+// Thành viên = tài khoản có document users/{uid} do admin tạo (scripts/sync-users.js).
+// Giới hạn: vì chấm ở client, người rành kỹ thuật vẫn có thể tự báo "đúng" cho câu sai.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isMember() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    function unlockId(questionId) { return request.auth.uid + '_' + questionId; }
+
+    match /questions/{questionId} {
+      allow read: if isMember();
+      allow write: if false;
+    }
+
+    match /exams/{examId} {
+      allow read: if isMember();
+      allow write: if false;
+    }
+
+    match /answers/{questionId} {
+      allow get: if isMember()
+        && exists(/databases/$(database)/documents/answerUnlocks/$(unlockId(questionId)));
+      allow list, write: if false;
+    }
+
+    // Câu trả lời đầu tiên của học sinh cho một câu hỏi — điều kiện để mở đáp án câu đó.
+    match /answerUnlocks/{unlock} {
+      allow create: if isMember()
+        && request.resource.data.keys().hasOnly(['userId', 'questionId', 'userAnswer', 'createdAt'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.questionId is string
+        && unlock == unlockId(request.resource.data.questionId)
+        && exists(/databases/$(database)/documents/questions/$(request.resource.data.questionId))
+        && request.resource.data.userAnswer is string
+        && request.resource.data.userAnswer.size() > 0
+        && request.resource.data.userAnswer.size() <= 300
+        && request.resource.data.createdAt == request.time;
+      allow get: if signedIn() && resource.data.userId == request.auth.uid;
+      allow list, update, delete: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.updatedAt == request.time
+        && (nameOnly() || oneAnswerProgress() || resetStats());
+      allow create, delete: if false;
+
+      function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+      function statKeys() {
+        return ['stars', 'streak', 'bestStreak', 'bonusCount', 'totalAnswered', 'totalCorrect', 'qstats', 'updatedAt'];
+      }
+
+      function nameOnly() {
+        return changed().hasOnly(['name', 'updatedAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 40;
+      }
+
+      // Đúng một câu vừa được chấm: +1 lượt; nếu đúng thì +1..6 sao và chuỗi +1, nếu sai thì chuỗi về 0.
+      function oneAnswerProgress() {
+        let n = request.resource.data;
+        let o = resource.data;
+        let correct = n.totalCorrect == o.totalCorrect + 1;
+        return changed().hasOnly(statKeys())
+          && n.totalAnswered == o.totalAnswered + 1
+          && (correct || n.totalCorrect == o.totalCorrect)
+          && (correct
+                ? n.stars >= o.stars + 1 && n.stars <= o.stars + 6 && n.streak == o.streak + 1
+                : n.stars == o.stars && n.streak == 0)
+          && n.bonusCount >= o.bonusCount && n.bonusCount <= o.bonusCount + 1
+          && n.bestStreak == (n.streak > o.bestStreak ? n.streak : o.bestStreak)
+          && n.qstats is map;
+      }
+
+      function resetStats() {
+        let n = request.resource.data;
+        return changed().hasOnly(statKeys())
+          && n.stars == 0 && n.streak == 0 && n.bestStreak == 0 && n.bonusCount == 0
+          && n.totalAnswered == 0 && n.totalCorrect == 0
+          && n.qstats is map && n.qstats.size() == 0;
+      }
+    }
+
+    match /submissions/{submissionId} {
+      allow read, delete: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isMember()
+        && validSubmission()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.details.size() == 1
+        && request.resource.data.createdAt == request.time;
+      allow update: if signedIn() && resource.data.userId == request.auth.uid
+        && resource.data.status != 'completed'
+        && validSubmission()
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.examId == resource.data.examId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.details.size() == resource.data.details.size() + 1;
+
+      function validSubmission() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['userId', 'examId', 'score', 'total', 'starsEarned', 'status', 'details', 'createdAt', 'updatedAt'])
+          && d.examId is string
+          && exists(/databases/$(database)/documents/exams/$(d.examId))
+          && d.details is list && d.details.size() <= 200
+          && d.total == d.details.size()
+          && d.score is int && d.score >= 0 && d.score <= d.total
+          && d.starsEarned is int && d.starsEarned >= 0 && d.starsEarned <= d.total * 6
+          && d.status in ['in_progress', 'completed']
+          && d.updatedAt == request.time;
+      }
+    }
+  }
+}

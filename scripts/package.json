@@ -1,0 +1,14 @@
+{
+  "name": "tdn-english-scripts",
+  "private": true,
+  "description": "Seed dữ liệu câu hỏi và quản lý thành viên trên Firestore",
+  "scripts": {
+    "seed": "node seed.js",
+    "seed:check": "node seed.js --dry-run",
+    "sync-users": "node sync-users.js",
+    "test": "node ../tests/run.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.0"
+  }
+}
