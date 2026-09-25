@@ -53,7 +53,7 @@ const STORAGE_KEY = 'tdn-english-v2';
 function localDefaults() {
   // sessions: lượt đang làm của từng mảng { writing, letter, text }
   // daily: bộ câu "Luyện mỗi ngày" đã giao hôm nay theo mảng { [mảng]: { uid, date, ids } }
-  // pool: nguồn câu Writing khi luyện — 'book' (trong sách) | 'gen' (tự soạn) | 'all'
+  // pool: nguồn câu Writing khi luyện — 'book' (trong sách) | 'gen' (tạo bởi AI) | 'all'
   return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10, pool: 'all', sound: true }, sessions: {}, guestProfile: null, daily: {} };
 }
 
@@ -125,7 +125,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const pct = (c, a) => a ? Math.round(c * 100 / a) : 0;
 const countWords = text => String(text).trim().split(/\s+/).filter(w => /[\wÀ-ỹ]/.test(w)).length;
-const sourceLabel = source => source.map(s => (s.gen ? '[gen]' : t('src_item', { b: s.book, d: s.test }))).join(' | ');
+const sourceLabel = source => source.map(s => (s.gen ? t('src_gen') : t('src_item', { b: s.book, d: s.test }))).join(' | ');
 const questionsForTopic = id => QUESTIONS.filter(q => q.topics.includes(id));
 const POOLS = ['book', 'gen', 'all'];
 const pool = () => (POOLS.includes(local.settings.pool) ? local.settings.pool : 'all');
@@ -133,7 +133,7 @@ const isGen = q => q.source.some(s => s.gen);
 const inPool = (q, p = pool()) => p === 'all' || (p === 'gen') === isGen(q);
 const poolQuestions = (p = pool()) => modQuestions('writing').filter(q => inPool(q, p));
 const poolTopic = id => questionsForTopic(id).filter(q => inPool(q));
-// Nguồn câu (sách / tự soạn) chỉ có ở Writing; Reading luôn lấy mọi câu.
+// Nguồn câu (sách / tạo bởi AI) chỉ có ở Writing; Reading luôn lấy mọi câu.
 const modPool = m => (m === 'writing' ? pool() : 'all');
 // Lượt làm dở thuộc nguồn câu đang chọn không (lượt theo đề / ôn câu sai thì luôn thuộc).
 const sessionInPool = s => !s.kind || !['all', 'topic', 'daily'].includes(s.kind.mode) || (s.kind.pool || 'all') === modPool(s.mod);
@@ -633,7 +633,7 @@ function groupByPassage(ids, shuffled) {
 function startSession(m, mode, value, poolOverride) {
   let examId, ids;
   const mod = MODS[m];
-  // Chọn theo nguồn câu (sách / tự soạn) cho lượt tất cả, chủ điểm và luyện mỗi ngày.
+  // Chọn theo nguồn câu (sách / tạo bởi AI) cho lượt tất cả, chủ điểm và luyện mỗi ngày.
   const p = poolOverride || (!guest && ['all', 'topic', 'daily'].includes(mode || 'all') ? modPool(m) : 'all');
   if (mode === 'topic') { examId = 'topic-' + value; ids = (EXAMS[examId] || {}).questionIds || questionsForTopic(value).map(q => q.id); }
   else if (mode === 'exam') { const [b, d] = value.split('-'); examId = mod.examPrefix + examKey(b, d); ids = (EXAMS[examId] || {}).questionIds || []; }
