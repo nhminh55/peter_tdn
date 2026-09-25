@@ -12,7 +12,7 @@ const { buildDocs, loadBrowserGlobals } = require('../scripts/seed');
 
 const ROOT = path.resolve(__dirname, '..');
 const win = loadBrowserGlobals([path.join(ROOT, 'scripts/source/data.js'), path.join(ROOT, 'public/js/lessons.js')]);
-const built = buildDocs(win.WRITING_QUESTIONS, win.LESSONS);
+const built = buildDocs(win.WRITING_QUESTIONS, win.LESSONS, win.TRIAL);
 const KEYS = Object.fromEntries(built.answerDocs.map(d => [d.id, d.data]));
 const QUESTIONS = Object.fromEntries(built.questionDocs.map(d => [d.id, d.data]));
 
@@ -108,6 +108,14 @@ test('every book answer and generated variant is accepted', () => {
     assert.ok(Grader.grade(data, data.answer, true).correct, id);
     Grader.compile(data).variants.forEach(v => assert.ok(Grader.grade(data, v, true).correct, `${id}: ${v}`));
   });
+});
+
+test('trial exam: TRIAL.questions questions from the first TRIAL.lessons lessons', () => {
+  const trial = built.examDocs.find(e => e.id === 'trial');
+  assert.ok(trial, 'exams/trial');
+  assert.strictEqual(trial.data.questionIds.length, win.TRIAL.questions);
+  const topics = win.LESSONS.slice(0, win.TRIAL.lessons).map(l => l.id);
+  trial.data.questionIds.forEach(id => assert.ok(QUESTIONS[id].topics.some(t => topics.includes(t)), id));
 });
 
 let failed = 0;

@@ -6,7 +6,8 @@
  *                   ← đề bài, thành viên đọc được
  *   answers/{id}    { cues, answer, accept, defs, explanation: {vi, en} }
  *                   ← đáp án, chỉ đọc được sau khi đã nộp câu đó (xem firestore.rules)
- *   exams/{id}      60 đề (b1-t01 … b2-t30), 'all', và 'topic-<id>' cho từng chủ điểm
+ *   exams/{id}      60 đề (b1-t01 … b2-t30), 'all', 'topic-<id>' cho từng chủ điểm, và 'trial'
+ *                   (các câu khách chưa đăng nhập được làm thử — xem window.TRIAL trong lessons.js)
  *
  * Cách chạy (từ thư mục scripts/):
  *   npm install
@@ -58,7 +59,7 @@ const EXAM_ORDER = {
 const pad = n => String(n).padStart(2, '0');
 const examIdFor = (book, test) => `b${book}-t${pad(test)}`;
 
-function buildDocs(questions, lessons) {
+function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }) {
   const lessonTitles = Object.fromEntries(lessons.map(l => [l.id, l.title]));
   const errors = [];
   const ids = new Set();
@@ -135,6 +136,15 @@ function buildDocs(questions, lessons) {
     });
   });
 
+  // Làm thử: các câu đầu tiên (theo thứ tự) thuộc chủ điểm của những bài học khách được xem.
+  const trialTopics = lessons.slice(0, trial.lessons).map(l => l.id);
+  const trialIds = questions.filter(q => q.topics.some(t => trialTopics.includes(t))).slice(0, trial.questions).map(q => q.id);
+  if (trialIds.length < trial.questions) errors.push(`Trial: only ${trialIds.length} questions for topics ${trialTopics.join(', ')}`);
+  examDocs.push({
+    id: 'trial',
+    data: { kind: 'trial', questionIds: trialIds, title: { vi: 'Làm thử', en: 'Free trial' }, order: 2000 }
+  });
+
   return { questionDocs, answerDocs, examDocs, errors };
 }
 
@@ -155,7 +165,7 @@ async function main() {
   const lessons = win.LESSONS;
   if (!Array.isArray(questions) || !questions.length) throw new Error('WRITING_QUESTIONS not found in ' + args.source);
 
-  const { questionDocs, answerDocs, examDocs, errors } = buildDocs(questions, lessons);
+  const { questionDocs, answerDocs, examDocs, errors } = buildDocs(questions, lessons, win.TRIAL);
   console.log(`Loaded ${questions.length} questions, ${examDocs.length} exams from ${path.relative(ROOT, args.source)}`);
   if (errors.length) {
     console.error('Data errors:\n  ' + errors.join('\n  '));

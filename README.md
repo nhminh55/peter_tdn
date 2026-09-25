@@ -11,6 +11,8 @@ Chạy hoàn toàn trên **gói Spark (miễn phí)** của Firebase: Hosting + 
   - **Practice**: làm từng câu, bấm Check để chấm và xem giải thích. Đúng 1 câu +1 ★, đúng 5 câu liên tiếp thưởng thêm +5 ★.
   - Chấm linh hoạt theo mẫu câu: chấp nhận mọi cách viết đúng ngữ pháp, đúng nghĩa.
 - **Listening, Reading**: sắp ra mắt.
+- **Dùng thử không cần đăng nhập**: khách xem được 2 bài học đầu và làm 5 câu (`exams/trial`); sao chỉ lưu trên máy.
+  Đổi số lượng ở `window.TRIAL` trong `public/js/lessons.js` rồi chạy lại `seed.js`.
 - Mỗi thí sinh đăng nhập bằng **username** + mật khẩu riêng (username được tra ra email ngầm); giao diện tiếng Việt / English.
 
 ## Kiến trúc
@@ -36,11 +38,11 @@ firestore.rules           quyền truy cập
 
 | Collection | Nội dung | Client |
 |---|---|---|
-| `questions/{id}` | `type`, `cues`, `topics`, `source [{book, test}]`, `order` | thành viên đọc |
-| `answers/{id}` | `answer`, `accept`, `defs`, `explanation {vi, en}`, `cues` | đọc **từng câu**, chỉ sau khi đã nộp câu đó; không `list` được |
+| `questions/{id}` | `type`, `cues`, `topics`, `source [{book, test}]`, `order` | thành viên đọc; khách chỉ `get` các câu trong `exams/trial` |
+| `answers/{id}` | `answer`, `accept`, `defs`, `explanation {vi, en}`, `cues` | đọc **từng câu**, chỉ sau khi đã nộp câu đó; không `list` được. Câu làm thử: ai cũng `get` được |
 | `answerUnlocks/{uid}_{qid}` | câu trả lời đầu tiên của thí sinh | tạo một lần, không sửa / xoá |
 | `usernames/{username}` | `email` — để đăng nhập bằng username | ai cũng `get` được từng username; không `list`, không ghi |
-| `exams/{id}` | `questionIds`, `kind` (`test` / `all` / `topic`), `title` | thành viên đọc |
+| `exams/{id}` | `questionIds`, `kind` (`test` / `all` / `topic` / `trial`), `title` | thành viên đọc; khách chỉ `get` được `exams/trial` |
 | `users/{uid}` | `email`, `name`, `stars`, `streak`, `qstats`… — có document = là thành viên | chủ tài khoản đọc / ghi, rules giới hạn mức cộng sao |
 | `submissions/{id}` | `userId`, `examId`, `score`, `total`, `details[]` | chủ tài khoản ghi / đọc, mỗi lần thêm đúng 1 câu |
 

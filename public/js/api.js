@@ -153,6 +153,36 @@ export async function checkAnswer({ examId, submissionId, questionId, userAnswer
   return { submissionId: ref.id, result: out.result, profile: Object.assign({}, profile, out.stats) };
 }
 
+/* ---------- Làm thử (khách chưa đăng nhập) ---------- */
+
+// Chỉ các câu trong exams/trial — rules cho khách get đúng những document này.
+export async function fetchTrialCatalog() {
+  const exam = await getDoc(doc(db, 'exams', 'trial'));
+  if (!exam.exists()) throw new Error('Trial exam is missing.');
+  const snaps = await Promise.all(exam.data().questionIds.map(id => getDoc(doc(db, 'questions', id))));
+  const questions = snaps.filter(d => d.exists())
+    .map(d => ({ id: d.id, cues: d.data().cues, topics: d.data().topics || [], source: d.data().source || [], order: d.data().order || 0 }));
+  return { questions, exams: { trial: Object.assign({ id: 'trial' }, exam.data()) } };
+}
+
+/**
+ * Chấm một câu làm thử. Không ghi gì lên Firestore: thống kê (profile) và bài nộp (sub)
+ * do app giữ ở localStorage.
+ * @returns {{ submissionId: null, result: object, profile: object, sub: object }}
+ */
+export async function checkTrialAnswer({ profile, sub, questionId, userAnswer, strict }) {
+  const snap = await getDoc(doc(db, 'answers', questionId));
+  if (!snap.exists()) throw new Error(`Answer for ${questionId} is missing.`);
+  const out = Scoring.applyAnswer({ profile, sub, questionId, userAnswer, strict, key: snap.data(), grader: Grader, now: Date.now() });
+  if (out.duplicate) return { submissionId: null, result: out.result, profile, sub };
+  return {
+    submissionId: null,
+    result: out.result,
+    profile: Object.assign({}, profile, out.stats),
+    sub: { details: out.details, score: out.score }
+  };
+}
+
 // Xoá lịch sử và thống kê của chính mình (đáp án đã mở vẫn giữ nguyên).
 export async function resetProgress() {
   for (;;) {

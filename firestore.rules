@@ -2,6 +2,7 @@ rules_version = '2';
 
 // Gói Spark: không có Cloud Functions, client tự chấm. Rules bảo vệ theo cách "nộp trước, xem sau":
 //   - Đề (questions, exams): thành viên đọc được.
+//   - Làm thử (khách chưa đăng nhập): chỉ get được exams/trial và đúng các câu trong đó (đề + đáp án).
 //   - Đáp án answers/{qid}: chỉ đọc được TỪNG câu, sau khi đã ghi câu trả lời của mình vào
 //     answerUnlocks/{uid}_{qid} (không sửa, không xoá được). Không cho list → không tải hàng loạt.
 //   - users/{uid}: client tự cộng sao nhưng mỗi lần ghi chỉ được +1 lượt trả lời và tối đa +6 sao.
@@ -18,6 +19,10 @@ service cloud.firestore {
       return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
     function unlockId(questionId) { return request.auth.uid + '_' + questionId; }
+    // Các câu làm thử (scripts/seed.js ghi vào exams/trial).
+    function isTrial(questionId) {
+      return questionId in get(/databases/$(database)/documents/exams/trial).data.questionIds;
+    }
 
     // Username → email cho trang đăng nhập (tra trước khi đăng nhập nên phải public).
     // Chỉ cho get theo đúng username; cấm list để không ai tải được danh sách email.
@@ -29,17 +34,20 @@ service cloud.firestore {
 
     match /questions/{questionId} {
       allow read: if isMember();
+      allow get: if isTrial(questionId);
       allow write: if false;
     }
 
     match /exams/{examId} {
       allow read: if isMember();
+      allow get: if examId == 'trial';
       allow write: if false;
     }
 
     match /answers/{questionId} {
-      allow get: if isMember()
-        && exists(/databases/$(database)/documents/answerUnlocks/$(unlockId(questionId)));
+      allow get: if (isMember()
+          && exists(/databases/$(database)/documents/answerUnlocks/$(unlockId(questionId))))
+        || isTrial(questionId);
       allow list, write: if false;
     }
 

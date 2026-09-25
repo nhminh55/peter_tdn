@@ -486,3 +486,7 @@ Children wash <b>their</b> hands · She brushes <b>her</b> teeth · He does <b>h
 <div class="warn">Gợi ý có thể <b>không có sẵn</b> liên từ, em phải tự thêm: My dream house / have / swimming pool / big garden → … a swimming pool <b>and</b> a big garden.</div>`
   }
 ];
+
+// Dùng thử không cần đăng nhập: xem được TRIAL.lessons bài đầu, làm TRIAL.questions câu
+// (scripts/seed.js chọn các câu này vào exams/trial; firestore.rules chỉ mở đúng các câu đó).
+window.TRIAL = { lessons: 2, questions: 5 };

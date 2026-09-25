@@ -3,10 +3,14 @@
  * Firestore `questions`; khi bấm Check mới lấy đáp án của đúng câu đó từ `answers`,
  * chấm bằng Grader rồi lưu vào `submissions` (xem api.checkAnswer).
  * localStorage chỉ giữ cài đặt giao diện và lượt đang làm dở.
+ *
+ * Khách chưa đăng nhập được dùng thử (guest): xem TRIAL.lessons bài học đầu và làm các câu
+ * trong exams/trial. Kết quả của khách chỉ lưu ở localStorage (local.guestProfile).
  */
 import * as api from './api.js';
 
 const LESSONS = window.LESSONS;
+const TRIAL = window.TRIAL;
 const { STREAK_BONUS_EVERY, STREAK_BONUS_STARS } = window.Scoring;
 const MAX_WORDS = 15;
 
@@ -15,13 +19,14 @@ let Q_BY_ID = {};
 let EXAMS = {};       // examId -> { questionIds, kind, ... }
 let profile = Object.assign({}, api.PROFILE_DEFAULTS);   // thống kê trong users/{uid}
 let user = null;      // tài khoản Firebase đang đăng nhập
+let guest = false;    // đang dùng thử, không đăng nhập
 
 /* ---------- Trạng thái cục bộ (localStorage) ---------- */
 
 const STORAGE_KEY = 'tdn-english-v2';
 
 function localDefaults() {
-  return { settings: { strict: false, order: 'random', lang: 'vi' }, session: null };
+  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false }, session: null, guestProfile: null };
 }
 
 let storageOk = true;
@@ -30,7 +35,11 @@ function loadLocal() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return localDefaults();
     const data = JSON.parse(raw);
-    return { settings: Object.assign(localDefaults().settings, data.settings), session: data.session || null };
+    return {
+      settings: Object.assign(localDefaults().settings, data.settings),
+      session: data.session || null,
+      guestProfile: data.guestProfile || null
+    };
   } catch (e) {
     storageOk = false;
     return localDefaults();
@@ -54,6 +63,8 @@ function t(key, params) {
 }
 const lessonText = l => (lang() === 'en' && window.LESSONS_EN[l.id]) || l;
 const lessonById = id => LESSONS.find(l => l.id === id);
+const lessonLocked = idx => guest && idx >= TRIAL.lessons;
+const sessionOwner = () => (user ? user.uid : 'guest');
 const topicTitle = id => { const l = lessonById(id); return l ? lessonText(l).title : id; };
 
 const FLAG_VN = '<svg viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="20" fill="#DA251D"/><polygon fill="#FFFF00" points="15,4 16.35,8.15 20.71,8.15 17.18,10.71 18.53,14.85 15,12.29 11.47,14.85 12.82,10.71 9.29,8.15 13.65,8.15"/></svg>';
@@ -102,20 +113,28 @@ function sessionLabel(s) {
 
 function renderHeader() {
   const route = location.hash || '#/';
+  const inside = user || guest;
   const active = p => route === p || (p !== '#/' && route.startsWith(p)) ? ' class="active"' : '';
   document.documentElement.lang = t('html_lang');
   document.title = t('doc_title');
   $('#header').innerHTML = `
     <a class="brand" href="#/"><span class="brand-mark">TĐN</span><span class="brand-text">${t('brand_title')}<small>${t('brand_sub')}</small></span></a>
-    ${user ? `<nav class="nav">
+    ${inside ? `<nav class="nav">
       <a href="#/"${active('#/')}>${t('nav_home')}</a>
       <a href="#/writing"${active('#/writing')}>${t('nav_writing')}</a>
-      <a href="#/results"${active('#/results')}>${t('nav_results')}</a>
+      ${guest ? '' : `<a href="#/results"${active('#/results')}>${t('nav_results')}</a>`}
     </nav>` : '<span class="nav"></span>'}
     <div class="lang" role="group" aria-label="${t('lang_switch')}">
       <button type="button" class="flag ${lang() === 'vi' ? 'on' : ''}" data-lang="vi" title="${t('lang_vi')}" aria-label="${t('lang_vi')}" aria-pressed="${lang() === 'vi'}">${FLAG_VN}</button>
       <button type="button" class="flag ${lang() === 'en' ? 'on' : ''}" data-lang="en" title="${t('lang_en')}" aria-label="${t('lang_en')}" aria-pressed="${lang() === 'en'}">${FLAG_EN}</button>
     </div>
+    ${guest ? `
+    <span class="star-pill" title="${t('stars_title')}">
+      <span class="star-icon">★</span><b id="star-total">${profile.stars}</b>
+    </span>
+    <button type="button" class="logout" data-login>
+      <span class="logout-name">${t('guest_name')}</span><span class="logout-label">${t('login_btn')}</span>
+    </button>` : ''}
     ${user ? `
     <a class="star-pill" href="#/results" title="${t('stars_title')}">
       <span class="star-icon">★</span><b id="star-total">${profile.stars}</b>
@@ -140,6 +159,24 @@ function crumbs(items) {
 
 /* ---------- Trang chủ ---------- */
 
+// Thanh nhắc khách: đang dùng thử, đăng nhập để mở toàn bộ.
+function guestBanner() {
+  return `
+    <div class="guest-banner">
+      <div>${t('guest_banner', { l: TRIAL.lessons, q: QUESTIONS.length })}</div>
+      <button class="btn primary" data-login>${t('login_btn')}</button>
+    </div>`;
+}
+
+function lockedHtml(textKey) {
+  return `
+    <section class="locked">
+      <div class="locked-icon">🔒</div>
+      <p>${t(textKey, { l: TRIAL.lessons, q: QUESTIONS.length })}</p>
+      <button class="btn primary big" data-login>${t('login_btn')}</button>
+    </section>`;
+}
+
 function viewHome() {
   const s = totals();
   const hello = profile.name ? t('hello_name', { name: esc(profile.name) }) : t('hello');
@@ -153,6 +190,7 @@ function viewHome() {
         <div><b>${pct(s.correct, s.answered)}%</b><span>${t('stat_accuracy')}</span></div>
       </div>
     </section>
+    ${guest ? guestBanner() : ''}
     <section class="skills">
       <div class="skill disabled">
         <div class="skill-icon">🎧</div>
@@ -167,7 +205,7 @@ function viewHome() {
       <a class="skill" href="#/writing">
         <div class="skill-icon">✍️</div>
         <h2>Writing</h2><p>${t('writing_desc')}</p>
-        <span class="badge go">${t('writing_badge', { q: QUESTIONS.length, l: LESSONS.length })}</span>
+        <span class="badge go">${guest ? t('writing_badge_guest', { q: QUESTIONS.length, l: TRIAL.lessons }) : t('writing_badge', { q: QUESTIONS.length, l: LESSONS.length })}</span>
       </a>
     </section>`);
 }
@@ -183,6 +221,7 @@ function viewWriting() {
       <h1>${t('writing_title')}</h1>
       <p>${t('writing_intro')}</p>
     </section>
+    ${guest ? guestBanner() : ''}
     <section class="big-choices">
       <a class="big-choice learn" href="#/writing/learn">
         <span class="bc-icon">📘</span>
@@ -212,14 +251,16 @@ function viewLearnList() {
       <h1>${t('learn_title')}</h1>
       <p>${t('learn_intro')}</p>
     </section>
+    ${guest ? guestBanner() : ''}
     <section class="lesson-grid">
       ${LESSONS.map((l, i) => {
         const n = questionsForTopic(l.id).length;
         const lt = lessonText(l);
-        return `<a class="lesson-card" href="#/writing/learn/${l.id}">
+        const locked = lessonLocked(i);
+        return `<a class="lesson-card${locked ? ' locked' : ''}" href="#/writing/learn/${l.id}">
           <span class="lc-icon">${l.icon}</span>
           <span class="lc-body"><span class="lc-num">${t('lesson_n', { n: i + 1 })}</span><span class="lc-title">${esc(lt.title)}</span><span class="lc-short">${esc(lt.short)}</span></span>
-          ${n ? `<span class="lc-count">${t('n_questions', { n })}</span>` : ''}
+          ${locked ? `<span class="lc-count">🔒 ${t('locked')}</span>` : n ? `<span class="lc-count">${t('n_questions', { n })}</span>` : ''}
         </a>`;
       }).join('')}
     </section>`);
@@ -230,6 +271,11 @@ function viewLesson(id) {
   if (idx < 0) return go('#/writing/learn');
   const l = LESSONS[idx], prev = LESSONS[idx - 1], next = LESSONS[idx + 1];
   const lt = lessonText(l);
+  if (lessonLocked(idx)) {
+    return page(`
+      ${crumbs([[t('crumb_home'), '#/'], [t('crumb_writing'), '#/writing'], [t('crumb_learn'), '#/writing/learn'], [lt.title]])}
+      ${lockedHtml('locked_lesson')}`);
+  }
   const qs = questionsForTopic(id);
   page(`
     ${crumbs([[t('crumb_home'), '#/'], [t('crumb_writing'), '#/writing'], [t('crumb_learn'), '#/writing/learn'], [lt.title]])}
@@ -248,7 +294,7 @@ function viewLesson(id) {
     </article>
     <nav class="lesson-nav">
       ${prev ? `<a class="btn ghost" href="#/writing/learn/${prev.id}">← ${esc(lessonText(prev).title)}</a>` : '<span></span>'}
-      ${next ? `<a class="btn ghost" href="#/writing/learn/${next.id}">${esc(lessonText(next).title)} →</a>` : '<span></span>'}
+      ${next ? `<a class="btn ghost" href="#/writing/learn/${next.id}">${lessonLocked(idx + 1) ? '🔒 ' : ''}${esc(lessonText(next).title)} →</a>` : '<span></span>'}
     </nav>`);
   const btn = $('#practice-topic');
   if (btn) btn.addEventListener('click', () => startSession('topic', id));
@@ -262,22 +308,57 @@ function viewPracticeSetup() {
   const wrong = wrongIds().length;
   const topicOptions = LESSONS.filter(l => questionsForTopic(l.id).length)
     .map(l => `<option value="${l.id}">${esc(t('topic_option', { title: lessonText(l).title, n: questionsForTopic(l.id).length }))}</option>`).join('');
+  const options = `
+    <section class="options">
+      <label class="opt"><input type="checkbox" id="opt-random" ${local.settings.order === 'random' ? 'checked' : ''}> ${t('opt_random')}</label>
+      <label class="opt"><input type="checkbox" id="opt-strict" ${local.settings.strict ? 'checked' : ''}> <span>${t('opt_strict')}</span></label>
+    </section>`;
+  const resume = unfinished ? `
+    <div class="resume">
+      <div>${t('resume_label', { label: esc(sessionLabel(s)), i: s.i + 1, n: s.ids.length })}</div>
+      <a class="btn primary" href="#/writing/practice/run">${t('resume_btn')}</a>
+    </div>` : '';
+  const wrongCard = `
+      <div class="setup-card ${wrong ? '' : 'muted'}">
+        <h3>${t('setup_wrong')}</h3>
+        <p>${wrong ? t('setup_wrong_desc', { n: wrong }) : t('setup_wrong_none')}</p>
+        <button class="btn primary" data-mode="wrong" ${wrong ? '' : 'disabled'}>${t('setup_wrong_btn')}</button>
+      </div>`;
+  const head = `
+    ${crumbs([[t('crumb_home'), '#/'], [t('crumb_writing'), '#/writing'], [t('crumb_practice')]])}
+    <section class="section-head">
+      <h1>${t('practice_title')}</h1>
+      <p>${t('practice_intro')}</p>
+    </section>
+    ${resume}`;
+
+  if (guest) {
+    page(`
+      ${head}
+      <section class="setup-grid">
+        <div class="setup-card">
+          <h3>${t('setup_trial')}</h3>
+          <p>${t('setup_trial_desc', { n: QUESTIONS.length })}</p>
+          <button class="btn primary" data-mode="all">${t('start')}</button>
+        </div>
+        ${wrongCard}
+        <div class="setup-card">
+          <h3>${t('setup_more')}</h3>
+          <p>${t('setup_more_desc')}</p>
+          <button class="btn ghost" data-login>${t('login_btn')}</button>
+        </div>
+      </section>
+      ${options}`);
+    return bindPracticeSetup();
+  }
+
   const examOptions = [1, 2].map(b => `<optgroup label="${t('book', { b })}">${
     Array.from({ length: 30 }, (_, i) => i + 1).filter(d => EXAMS[examKey(b, d)])
       .map(d => `<option value="${b}-${d}">${t('exam', { b, d })}</option>`).join('')
   }</optgroup>`).join('');
 
   page(`
-    ${crumbs([[t('crumb_home'), '#/'], [t('crumb_writing'), '#/writing'], [t('crumb_practice')]])}
-    <section class="section-head">
-      <h1>${t('practice_title')}</h1>
-      <p>${t('practice_intro')}</p>
-    </section>
-    ${unfinished ? `
-      <div class="resume">
-        <div>${t('resume_label', { label: esc(sessionLabel(s)), i: s.i + 1, n: s.ids.length })}</div>
-        <a class="btn primary" href="#/writing/practice/run">${t('resume_btn')}</a>
-      </div>` : ''}
+    ${head}
     <section class="setup-grid">
       <div class="setup-card">
         <h3>${t('setup_all')}</h3>
@@ -294,17 +375,13 @@ function viewPracticeSetup() {
         <select id="sel-exam">${examOptions}</select>
         <button class="btn primary" data-mode="exam">${t('setup_exam_btn')}</button>
       </div>
-      <div class="setup-card ${wrong ? '' : 'muted'}">
-        <h3>${t('setup_wrong')}</h3>
-        <p>${wrong ? t('setup_wrong_desc', { n: wrong }) : t('setup_wrong_none')}</p>
-        <button class="btn primary" data-mode="wrong" ${wrong ? '' : 'disabled'}>${t('setup_wrong_btn')}</button>
-      </div>
+      ${wrongCard}
     </section>
-    <section class="options">
-      <label class="opt"><input type="checkbox" id="opt-random" ${local.settings.order === 'random' ? 'checked' : ''}> ${t('opt_random')}</label>
-      <label class="opt"><input type="checkbox" id="opt-strict" ${local.settings.strict ? 'checked' : ''}> <span>${t('opt_strict')}</span></label>
-    </section>`);
+    ${options}`);
+  bindPracticeSetup();
+}
 
+function bindPracticeSetup() {
   $('#opt-random').addEventListener('change', e => { local.settings.order = e.target.checked ? 'random' : 'seq'; saveLocal(); });
   $('#opt-strict').addEventListener('change', e => { local.settings.strict = e.target.checked; saveLocal(); });
   $$('[data-mode]').forEach(b => b.addEventListener('click', () => {
@@ -318,18 +395,19 @@ function viewPracticeSetup() {
 // Mỗi lượt gắn với một bộ đề (exams); ôn câu sai dùng bộ 'all' (chứa mọi câu).
 function startSession(mode, value) {
   let examId, ids;
-  if (mode === 'topic') { examId = 'topic-' + value; ids = (EXAMS[examId] || {}).questionIds || []; }
+  if (mode === 'topic') { examId = 'topic-' + value; ids = (EXAMS[examId] || {}).questionIds || questionsForTopic(value).map(q => q.id); }
   else if (mode === 'exam') { const [b, d] = value.split('-'); examId = examKey(b, d); ids = (EXAMS[examId] || {}).questionIds || []; }
   else if (mode === 'wrong') { examId = 'all'; ids = wrongIds(); }
   else if (mode === 'retry') { examId = 'all'; ids = value; }
   else { mode = 'all'; examId = 'all'; ids = (EXAMS.all || {}).questionIds || QUESTIONS.map(q => q.id); }
   ids = ids.filter(id => Q_BY_ID[id]);
   if (!ids.length) return;
+  if (guest) examId = 'trial';
   if (local.settings.order === 'random' && mode !== 'exam') ids = shuffle(ids);
   local.session = {
-    uid: user.uid,
+    uid: sessionOwner(),
     kind: { mode, value: mode === 'retry' ? null : value },
-    examId, ids, i: 0, results: [], starsEarned: 0, submissionId: null, pending: null
+    examId, ids, i: 0, results: [], starsEarned: 0, submissionId: null, pending: null, guestSub: null
   };
   saveLocal();
   go('#/writing/practice/run');
@@ -431,14 +509,16 @@ function viewPracticeRun() {
     btnCheck.textContent = t('checking');
     $('#submit-error').hidden = true;
     try {
-      const res = await api.checkAnswer({
-        examId: s.examId,
-        submissionId: s.submissionId,
-        questionId: q.id,
-        userAnswer: text,
-        strict: local.settings.strict,
-        final: s.i === s.ids.length - 1
-      });
+      const res = guest
+        ? await api.checkTrialAnswer({ profile, sub: s.guestSub, questionId: q.id, userAnswer: text, strict: local.settings.strict })
+        : await api.checkAnswer({
+          examId: s.examId,
+          submissionId: s.submissionId,
+          questionId: q.id,
+          userAnswer: text,
+          strict: local.settings.strict,
+          final: s.i === s.ids.length - 1
+        });
       applyResult(s, res);
     } catch (err) {
       console.error(err);
@@ -456,6 +536,7 @@ function applyResult(s, res) {
   const r = res.result;
   s.submissionId = res.submissionId;
   profile = res.profile;
+  if (guest) { s.guestSub = res.sub; local.guestProfile = profile; }
   if (!r.duplicate) s.starsEarned += r.starsEarned;
   s.results.push({ id: r.questionId, correct: r.correct, answer: r.answer });
   s.pending = { i: s.i, result: r };
@@ -534,9 +615,10 @@ function viewSummary() {
       <div class="sum-actions">
         ${wrongInSession.length ? `<button class="btn primary" id="retry">${t('sum_retry', { n: wrongInSession.length })}</button>` : ''}
         <a class="btn ${wrongInSession.length ? 'ghost' : 'primary'}" href="#/writing/practice">${t('sum_new')}</a>
-        <a class="btn ghost" href="#/results">${t('sum_total')}</a>
+        ${guest ? `<button class="btn ghost" data-login>${t('sum_login')}</button>` : `<a class="btn ghost" href="#/results">${t('sum_total')}</a>`}
       </div>
     </section>
+    ${guest ? guestBanner() : ''}
     <section class="sum-list">
       ${s.results.map((r, i) => {
         const q = Q_BY_ID[r.id];
@@ -690,7 +772,7 @@ function route() {
   renderHeader();
   const parts = h.replace(/^#\/?/, '').split('/').filter(Boolean);
   if (!parts.length) return viewHome();
-  if (parts[0] === 'results') return viewResults();
+  if (parts[0] === 'results') return guest ? viewHome() : viewResults();
   if (parts[0] === 'writing') {
     if (!parts[1]) return viewWriting();
     if (parts[1] === 'learn') return parts[2] ? viewLesson(parts[2]) : viewLearnList();
@@ -715,7 +797,12 @@ function viewLogin(errorKey) {
         <button class="btn primary big" type="submit" id="login-btn">${t('login_btn')}</button>
       </form>
       <p class="login-help">${t('login_help')}</p>
+      <div class="login-trial">
+        <p>${t('trial_desc', { l: TRIAL.lessons, q: TRIAL.questions })}</p>
+        <button class="btn ghost big" type="button" id="trial-btn">${t('trial_btn')}</button>
+      </div>
     </section>`);
+  $('#trial-btn').addEventListener('click', startGuest);
   const form = $('#login-form');
   $('#login-username').focus();
   form.addEventListener('submit', async e => {
@@ -730,6 +817,9 @@ function viewLogin(errorKey) {
     box.hidden = true;
     try {
       await api.login(username, password);
+      guest = false;
+      local.settings.guest = false;
+      saveLocal();
       boot();
     } catch (err) {
       console.error(err);
@@ -744,6 +834,23 @@ function viewLogin(errorKey) {
       btn.textContent = t('login_btn');
     }
   });
+}
+
+// Khách bấm "Đăng nhập": về trang đăng nhập, vẫn giữ kết quả làm thử để quay lại được.
+function showLogin() {
+  guest = false;
+  local.settings.guest = false;
+  saveLocal();
+  profile = Object.assign({}, api.PROFILE_DEFAULTS);
+  QUESTIONS = []; Q_BY_ID = {}; EXAMS = {};
+  viewLogin();
+}
+
+function startGuest() {
+  guest = true;
+  local.settings.guest = true;
+  saveLocal();
+  boot();
 }
 
 async function doLogout() {
@@ -765,10 +872,14 @@ async function boot() {
     console.error(err);
     user = null;
   }
-  if (!user) return viewLogin();
+  if (user) guest = false;
+  else if (local.settings.guest) guest = true;
+  else return viewLogin();
   renderHeader();
   try {
-    const [catalog, prof] = await Promise.all([api.fetchCatalog(), api.fetchProfile()]);
+    const [catalog, prof] = guest
+      ? [await api.fetchTrialCatalog(), Object.assign({}, api.PROFILE_DEFAULTS, local.guestProfile)]
+      : await Promise.all([api.fetchCatalog(), api.fetchProfile()]);
     QUESTIONS = catalog.questions;
     Q_BY_ID = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
     EXAMS = catalog.exams;
@@ -776,18 +887,24 @@ async function boot() {
   } catch (err) {
     console.error(err);
     // Đăng nhập được nhưng chưa có trong danh sách thành viên (users/{uid}).
-    const denied = err && (err.code === 'permission-denied' || err.code === 'firestore/permission-denied');
+    const denied = !guest && err && (err.code === 'permission-denied' || err.code === 'firestore/permission-denied');
     page(denied
       ? `<div class="boot"><p>${t('not_member', { email: esc(user.email || user.uid) })}</p><button class="btn ghost" id="boot-logout">${t('logout')}</button></div>`
-      : `<div class="boot"><p>${t('boot_error')}</p><button class="btn primary" id="boot-retry">${t('retry')}</button></div>`);
+      : `<div class="boot"><p>${t('boot_error')}</p><button class="btn primary" id="boot-retry">${t('retry')}</button>${guest ? ` <button class="btn ghost" id="boot-login">${t('login_btn')}</button>` : ''}</div>`);
     if (denied) $('#boot-logout').addEventListener('click', doLogout);
     else $('#boot-retry').addEventListener('click', boot);
+    if ($('#boot-login')) $('#boot-login').addEventListener('click', showLogin);
     return;
   }
   // Lượt làm dở của tài khoản khác trên cùng máy thì bỏ.
-  if (local.session && local.session.uid !== user.uid) { local.session = null; saveLocal(); }
+  if (local.session && local.session.uid !== sessionOwner()) { local.session = null; saveLocal(); }
   ready = true;
-  if (!routing) { window.addEventListener('hashchange', () => { if (ready) route(); }); routing = true; }
+  if (!routing) {
+    window.addEventListener('hashchange', () => { if (ready) route(); });
+    // Nút "Đăng nhập" của chế độ làm thử (header, trang bị khoá, tóm tắt lượt).
+    document.addEventListener('click', e => { if (guest && e.target.closest('[data-login]')) { e.preventDefault(); showLogin(); } });
+    routing = true;
+  }
   route();
 }
 
