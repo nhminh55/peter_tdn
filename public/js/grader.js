@@ -173,17 +173,20 @@ function compile(key) {
  *  - tính từ sở hữu trước danh từ (my sister, their hands, his flowers) — thay được cho a/an/the hoặc đứng thêm;
  *  - "very" nhấn mạnh tính từ (is very nice, a very small dog) — như câu Example của đề.
  * Chỉ xét các từ không có sẵn trong gợi ý; thử bỏ/thay từng từ rồi so lại với mẫu.
+ * key.possessives (nếu có) giới hạn các tính từ sở hữu được tự thêm — khi chủ ngữ quyết định
+ * chủ sở hữu (Nam → his room): mẫu ghi "(his|the) room" mà không nhận "her room".
  */
 const POSSESSIVES = ['my', 'our', 'their', 'her', 'his'];
 const BEFORE_ADJ = ['is', 'am', 'are', 'was', 'were', 'be', 'been', 'being', 'a', 'an', 'the', 'and',
   'look', 'looks', 'looked', 'feel', 'feels', 'felt', 'seem', 'seems', 'become', 'became'];
 const MAX_FILLERS = 4;
 
-function fillerOptions(words, cueWords) {
+function fillerOptions(words, cueWords, possessives) {
+  const allowed = possessives ? POSSESSIVES.filter(p => possessives.includes(p)) : POSSESSIVES;
   const opts = [];
   words.forEach((w, i) => {
     if (cueWords.has(w)) return;
-    if (POSSESSIVES.includes(w) && i + 1 < words.length) opts.push({ i, alts: ['', 'the', 'a', 'an'] });
+    if (allowed.includes(w) && i + 1 < words.length) opts.push({ i, alts: ['', 'the', 'a', 'an'] });
     else if (w === 'very' && i > 0 && i + 1 < words.length && BEFORE_ADJ.includes(words[i - 1])) opts.push({ i, alts: [''] });
   });
   return opts.slice(0, MAX_FILLERS);
@@ -197,7 +200,7 @@ function isAccepted(key, text) {
   if (test(n)) return true;
 
   const words = n.split(' ');
-  const opts = fillerOptions(words, new Set(normalize(key.cues || '').split(' ')));
+  const opts = fillerOptions(words, new Set(normalize(key.cues || '').split(' ')), key.possessives);
   if (!opts.length) return false;
   // Thử mọi tổ hợp giữ / bỏ / thay (tối đa 5^4 = 625 lần).
   const total = opts.reduce((p, o) => p * (o.alts.length + 1), 1);
@@ -322,7 +325,7 @@ function sampleVariants(key, exclude, n) {
 }
 
 /*
- * key: { cues, answer, accept, defs }
+ * key: { cues, answer, accept, defs, possessives? }
  * Chấm theo 4 bước:
  *   1. Đếm từ — quá 15 từ là sai yêu cầu (error: 'TOO_LONG'), không so mẫu nữa.
  *   2. Chuẩn hoá (normalize).

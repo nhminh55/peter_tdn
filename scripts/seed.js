@@ -8,7 +8,7 @@
  *                              prompt?, options?, topics, source: [{book, test}], order }
  *                   ← đề bài, thành viên đọc được
  *   passages/{id}   bài đọc Reading { part, title, paragraphs | text, source: {book, test}, questionIds, order }
- *   answers/{id}    Writing: { cues, answer, accept, defs, explanation: {vi, en} }
+ *   answers/{id}    Writing: { cues, answer, accept, defs, possessives?, explanation: {vi, en} }
  *                   Reading: { choice: true, answer, evidence, explanation: {vi, en} }
  *                   ← đáp án, chỉ đọc được sau khi đã nộp câu đó (xem firestore.rules)
  *   exams/{id}      Writing: 60 đề (b1-t01 … b2-t30), 'all', 'topic-<id>' cho từng chủ điểm
@@ -168,6 +168,7 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, rea
       answer: q.answer,
       accept: q.accept || [],
       defs: q.defs || {},
+      ...(q.possessives ? { possessives: q.possessives } : {}),
       explanation: { vi: q.vi || [], en: q.en || [] }
     };
     // Kiểm tra mẫu câu trước khi đẩy lên: mẫu phải parse được và đáp án sách phải được chấp nhận.

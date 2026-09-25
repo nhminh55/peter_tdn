@@ -176,6 +176,11 @@ test('allowed additions: possessive before a noun, "very" before an adjective', 
   ].forEach(([id, text]) => assert.ok(Grader.grade(KEYS[id], text, true).correct, text));
   // sai tính từ sở hữu vẫn sai
   assert.strictEqual(Grader.grade(KEYS.w15, 'She visits his grandparents twice a month.', true).correct, false);
+  // possessives: chủ ngữ quyết định chủ sở hữu — nhận mạo từ, không nhận sai giống
+  ['Nam was reading a comic book in the room at 3 p.m. yesterday.', 'Nam was reading a comic book in his room at 3 p.m. yesterday.']
+    .forEach(text => assert.ok(Grader.grade(KEYS.w81, text, true).correct, text));
+  ['her', 'my', 'their'].forEach(p => assert.strictEqual(
+    Grader.grade(KEYS.w81, `Nam was reading a comic book in ${p} room at 3 p.m. yesterday.`, true).correct, false, p));
 });
 
 test('invented time / frequency words are wrong and reported as extra', () => {
