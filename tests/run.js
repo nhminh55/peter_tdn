@@ -229,6 +229,26 @@ test('no accept pattern allows meaning words that are not in the cues', () => {
   });
 });
 
+test('every accepted variant keeps the cue words in the order of the book answer', () => {
+  writingAnswers.forEach(({ id, data }) => {
+    Grader.compile(data).variants.forEach(v => assert.ok(Grader.cueOrderOk(v, data), `${id}: ${v}`));
+  });
+});
+
+test('a wrong answer is always compared with the book answer, not another accepted sentence', () => {
+  writingAnswers.slice(0, 60).forEach(({ id, data }) => {
+    const r = Grader.grade(data, 'This is wrong.', false);
+    assert.strictEqual(r.closest, data.answer, id);
+  });
+});
+
+test('swapping the cue words is wrong even when every word is right', () => {
+  if (!KEYS.w202) return;
+  assert.ok(Grader.grade(KEYS.w202, "Katie's teacher of English is very nice and kind.", true).correct);
+  assert.ok(!Grader.grade(KEYS.w202, "Katie's English teacher is very nice and kind.", true).correct);
+  assert.ok(!Grader.grade(KEYS.w205, 'I would like to apologize to you for not returning the dictionary.', true).correct);
+});
+
 test('qstats records when each question was last answered', () => {
   const st = fresh();
   answer(st, 'w01', KEYS.w01.answer);

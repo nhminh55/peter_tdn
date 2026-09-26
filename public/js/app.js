@@ -17,7 +17,7 @@ const READING_LESSONS = window.READING_LESSONS;
 const TRIAL = window.TRIAL;
 const { STREAK_BONUS_EVERY, STREAK_BONUS_STARS } = window.Scoring;
 const MAX_WORDS = 15;
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 // Số câu làm thử: TRIAL.questions câu Writing + TRIAL.passages bài đọc đầu tiên của mỗi phần Reading
 // (thư 4 câu, đoạn văn 4 câu, bài đọc dài: đề thật 2023 có 6 câu).
 const TRIAL_QUESTIONS = TRIAL.questions + (TRIAL.passages || 0) * (4 + 4 + 6);
@@ -1174,9 +1174,8 @@ function feedbackHtml(r) {
   const compare = !r.contentOk && r.userMarks ? `
     <div class="compare">
       <div class="cmp-row"><span class="cmp-label">${t('cmp_yours')}</span><div class="cmp-text">${markedSentence(r.userMarks)}</div></div>
-      <div class="cmp-row"><span class="cmp-label">${t('cmp_closest')}</span><div class="cmp-text">${markedSentence(r.answerMarks, true)}</div></div>
+      <div class="cmp-row"><span class="cmp-label">${t('cmp_book')}</span><div class="cmp-text">${markedSentence(r.answerMarks, true)}</div></div>
       ${diffHtml(r.diff)}
-      ${r.closest !== r.answer ? `<div class="cmp-row"><span class="cmp-label">${t('cmp_book')}</span><div class="cmp-text book">${esc(r.answer)}</div></div>` : ''}
       <div class="legend">${t('legend')}</div>
     </div>` : `
     <div class="compare"><div class="cmp-row"><span class="cmp-label">${t('cmp_book')}</span><div class="cmp-text">${esc(r.answer)}</div></div></div>`;

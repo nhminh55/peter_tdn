@@ -313,11 +313,31 @@ function keepsOrder(text, answer) {
   return lcsDiff(a, b).len === common;
 }
 
+// Các từ gợi ý có đứng theo cùng thứ tự như trong đáp án sách không (không được đảo cụm:
+// "English teacher" thay cho "teacher of English", đưa "every year" ra cuối câu…).
+// Mỗi từ gợi ý tìm theo 4 chữ cái đầu (decide → decision, kind → kindly); từ không tìm thấy
+// hoặc xuất hiện nhiều lần trong câu thì bỏ qua.
+const ORDER_SKIP = new Set(['a', 'an', 'the', 'be', 'is', 'are', 'am', 'was', 'were', 'to', 'of', 'in', 'on', 'at', 'for',
+  'and', 'or', 'but', 'so', 'not', 'do', 'does', 'did', 'have', 'has', 'had', 'with', 'by', 'from']);
+function cueOrderOk(text, key) {
+  const cueWords = [...new Set(normalize(String(key.cues).replace(/\//g, ' ')).split(' '))]
+    .filter(w => w.length >= 2 && !ORDER_SKIP.has(w));
+  const posIn = words => w => {
+    const p = w.slice(0, Math.min(4, w.length));
+    const hits = words.map((x, i) => (x === w || (p.length >= 4 && x.startsWith(p)) ? i : -1)).filter(i => i >= 0);
+    return hits.length === 1 ? hits[0] : -1;
+  };
+  const book = normalize(key.answer).split(' '), got = normalize(text).split(' ');
+  const pairs = cueWords.map(w => [posIn(book)(w), posIn(got)(w)]).filter(([b, g]) => b >= 0 && g >= 0)
+    .sort((x, y) => x[0] - y[0]);
+  return pairs.every((p, i) => i === 0 || p[1] > pairs[i - 1][1]);
+}
+
 // Một vài cách viết đúng khác (ngoài đáp án sách), lấy rải đều trong danh sách.
 // Chỉ gợi ý những câu giữ đúng thứ tự gợi ý — không dạy học sinh đảo cụm từ.
 function sampleVariants(key, exclude, n) {
   const skip = new Set([normalize(key.answer), normalize(exclude || '')]);
-  const vs = compile(key).variants.filter(v => !skip.has(normalize(v)) && keepsOrder(v, key.answer));
+  const vs = compile(key).variants.filter(v => !skip.has(normalize(v)) && keepsOrder(v, key.answer) && cueOrderOk(v, key));
   if (vs.length <= n) return vs;
   const out = [];
   for (let i = 0; i < n; i++) out.push(vs[Math.floor(i * vs.length / n)]);
@@ -329,14 +349,14 @@ function sampleVariants(key, exclude, n) {
  * Chấm theo 4 bước:
  *   1. Đếm từ — quá 15 từ là sai yêu cầu (error: 'TOO_LONG'), không so mẫu nữa.
  *   2. Chuẩn hoá (normalize).
- *   3. Khớp một mẫu accept (kể cả khi thêm hư từ cho phép) → đúng nội dung.
- *   4. Không khớp → tìm câu đúng gần nhất, so LCS theo từ để chỉ ra từ thiếu / sai / thừa.
+ *   3. Khớp một mẫu accept (kể cả khi thêm hư từ cho phép) và giữ đúng thứ tự các từ gợi ý → đúng nội dung.
+ *   4. Không khớp → so với đáp án sách (LCS theo từ) để chỉ ra từ thiếu / sai / thừa.
  * strict: đòi cả hình thức (viết hoa, dấu câu cuối).
  */
 function grade(key, text, strict) {
   const wordCount = countWords(text);
   const tooLong = wordCount > MAX_WORDS;
-  const contentOk = !tooLong && isAccepted(key, text);
+  const contentOk = !tooLong && isAccepted(key, text) && cueOrderOk(text, key);
   const issues = formIssues(text, key.cues);
   const correct = contentOk && (!strict || issues.length === 0);
   const sameAsBook = normalize(text) === normalize(key.answer);
@@ -345,7 +365,7 @@ function grade(key, text, strict) {
   if (!contentOk) {
     const userTokens = tokenize(text);
     const userFlat = flatKeys(userTokens);
-    [key.answer].concat(compile(key).variants).forEach(a => {
+    [key.answer].forEach(a => {
       const ansTokens = tokenize(a);
       const ansFlat = flatKeys(ansTokens);
       const d = lcsDiff(userFlat.keys, ansFlat.keys);
@@ -369,5 +389,5 @@ function grade(key, text, strict) {
   };
 }
 
-return { grade, normalize, countWords, isAccepted, compile, sampleVariants, MAX_WORDS };
+return { grade, normalize, countWords, isAccepted, compile, sampleVariants, keepsOrder, cueOrderOk, MAX_WORDS };
 });
