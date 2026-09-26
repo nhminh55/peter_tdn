@@ -9,15 +9,21 @@ const fs = require('fs');
 const path = require('path');
 const Grader = require('../public/js/grader');
 const Scoring = require('../public/js/scoring');
-const { buildDocs, loadBrowserGlobals } = require('../scripts/seed');
+const ReadingGrader = require('../public/js/reading-grader');
+const { buildDocs, buildPassageDocs, loadBrowserGlobals } = require('../scripts/seed');
 
 const ROOT = path.resolve(__dirname, '..');
 // Ngân hàng Reading (scripts/source/reading.js) chỉ có trên máy như data.js; thiếu thì bỏ qua các test Reading.
 const READING_FILE = path.join(ROOT, 'scripts/source/reading.js');
 const hasReading = fs.existsSync(READING_FILE);
+// Bài đọc dài (Read a passage): scripts/source/passages/*.js, cũng chỉ có trên máy.
+const BANK_DIR = path.join(ROOT, 'scripts/source/passages');
+const bankFiles = fs.existsSync(BANK_DIR) ? fs.readdirSync(BANK_DIR).filter(f => f.endsWith('.js')).sort().map(f => path.join(BANK_DIR, f)) : [];
+const hasBank = hasReading && bankFiles.length > 0;
 const win = loadBrowserGlobals([path.join(ROOT, 'scripts/source/data.js'), path.join(ROOT, 'public/js/lessons.js'), path.join(ROOT, 'public/js/lessons-reading.js')]
-  .concat(hasReading ? [READING_FILE] : []));
-const built = buildDocs(win.WRITING_QUESTIONS, win.LESSONS, win.TRIAL, hasReading ? { passages: win.READING_PASSAGES, lessons: win.READING_LESSONS } : null);
+  .concat(hasReading ? [READING_FILE] : [], hasBank ? bankFiles : []));
+const built = buildDocs(win.WRITING_QUESTIONS, win.LESSONS, win.TRIAL,
+  hasReading ? { passages: win.READING_PASSAGES, bank: win.READING_PASSAGE_BANK || [], lessons: win.READING_LESSONS } : null);
 const KEYS = Object.fromEntries(built.answerDocs.map(d => [d.id, d.data]));
 const QUESTIONS = Object.fromEntries(built.questionDocs.map(d => [d.id, d.data]));
 const isWriting = id => QUESTIONS[id].type === 'writing_cues';
@@ -47,7 +53,7 @@ test('seed data has no errors', () => {
 test('public questions carry no answer data', () => {
   built.questionDocs.forEach(({ id, data }) => {
     if (data.type !== 'writing_cues') {
-      const allowed = ['type', 'part', 'passage', 'num', 'prompt', 'options', 'topics', 'source', 'order'];
+      const allowed = ['type', 'part', 'passage', 'num', 'prompt', 'options', 'maxWords', 'ideaCount', 'authored', 'topics', 'source', 'order'];
       Object.keys(data).forEach(k => assert.ok(allowed.includes(k), `${id}.${k}`));
       return;
     }
@@ -270,13 +276,15 @@ test('trial exam: TRIAL.questions questions from the first TRIAL.lessons lessons
 /* ---------- Reading ---------- */
 
 const readingTest = (name, fn) => test(name, () => { if (hasReading) fn(); else console.log('    (skipped: no scripts/source/reading.js)'); });
-const readingIds = () => built.questionDocs.filter(d => d.data.type !== 'writing_cues').map(d => d.id);
+// Câu của 2 phần theo sách 8020 (thư, đoạn văn); bài đọc dài có test riêng bên dưới.
+const readingIds = () => built.questionDocs.filter(d => d.data.type !== 'writing_cues' && d.data.part !== 'passage').map(d => d.id);
 
 readingTest('reading bank: 60 letters and 60 texts, 4 questions each, answers only in answers/', () => {
-  const parts = built.passageDocs.map(d => d.data.part);
+  const bookPassages = built.passageDocs.filter(d => d.data.part !== 'passage');
+  const parts = bookPassages.map(d => d.data.part);
   assert.strictEqual(parts.filter(p => p === 'letter').length, 60);
   assert.strictEqual(parts.filter(p => p === 'text').length, 60);
-  built.passageDocs.forEach(({ id, data }) => {
+  bookPassages.forEach(({ id, data }) => {
     assert.strictEqual(data.questionIds.length, 4, id);
     assert.ok(!('answer' in data) && !('questions' in data), id);
     data.questionIds.forEach(q => assert.strictEqual(QUESTIONS[q].passage, id, q));
@@ -327,7 +335,7 @@ readingTest('reading: exams per test, per part and per question type', () => {
   const all = built.examDocs.find(e => e.id === 'rl-all');
   assert.strictEqual(all.data.questionIds.length, 240);
   assert.ok(all.data.questionIds.every(id => QUESTIONS[id].part === 'letter'));
-  Object.values(win.READING_LESSONS).flat().forEach(l => {
+  Object.entries(win.READING_LESSONS).filter(([part]) => part !== 'passage').flatMap(([, ls]) => ls).forEach(l => {
     const n = readingIds().filter(id => QUESTIONS[id].topics.includes(l.id)).length;
     assert.strictEqual(Boolean(built.examDocs.find(e => e.id === 'topic-' + l.id)), n > 0, l.id);
   });
@@ -335,9 +343,80 @@ readingTest('reading: exams per test, per part and per question type', () => {
 
 readingTest('trial exam: the first passage of each reading part', () => {
   const trial = built.examDocs.find(e => e.id === 'trial').data;
-  assert.deepStrictEqual(Array.from(trial.passageIds), ['rl-b1-t01', 'rt-b1-t01']);
+  const passages = ['rl-b1-t01', 'rt-b1-t01'].concat(hasBank ? ['rp-e2023'] : []);
+  assert.deepStrictEqual(Array.from(trial.passageIds), passages);
   const reading = Array.from(trial.questionIds).filter(id => !isWriting(id));   // mảng từ sandbox vm: đưa về Array thường
-  assert.deepStrictEqual(reading, ['rl-b1-t01', 'rt-b1-t01'].flatMap(p => [1, 2, 3, 4].map(n => `${p}-${p[1] === 'l' ? n : n + 4}`)));
+  const expected = ['rl-b1-t01', 'rt-b1-t01'].flatMap(p => [1, 2, 3, 4].map(n => `${p}-${p[1] === 'l' ? n : n + 4}`))
+    .concat(hasBank ? [1, 2, 3, 4, 5, 6].map(n => `rp-e2023-${n}`) : []);
+  assert.deepStrictEqual(reading, expected);
+});
+
+/* ---------- Read a passage: câu tự gõ ---------- */
+
+test('find the word: exact word only; extra words, another form or a misspelling are wrong', () => {
+  const key = { kind: 'word', answers: ['priority'], maxWords: 1 };
+  const g = a => ReadingGrader.grade(key, a);
+  assert.ok(g('priority').correct);
+  assert.ok(g(' Priority. ').correct, 'case and punctuation do not matter');
+  assert.deepStrictEqual(g('a priority').issues.map(i => i.code), ['extra']);
+  assert.deepStrictEqual(g('priorities').issues.map(i => i.code), ['form']);
+  assert.deepStrictEqual(g('prioity').issues.map(i => i.code), ['spelling']);
+  assert.ok(!g('sleep').correct);
+  const two = { kind: 'word', answers: ['washbag', 'wash bag'], maxWords: 2 };
+  assert.ok(ReadingGrader.grade(two, 'wash bag').correct);
+  assert.deepStrictEqual(ReadingGrader.grade(two, 'a washbag').issues.map(i => i.code), ['extra']);
+});
+
+test('open questions: every idea needed, any wording of an idea counts', () => {
+  const key = {
+    kind: 'open', answer: 'They help monitor our health, alert us to problems and give useful advice.',
+    ideas: [{ any: ['monitor* health'] }, { any: ['alert*', 'warn*'] }, { any: ['advice', 'advise*'] }]
+  };
+  assert.ok(ReadingGrader.grade(key, 'They monitor our health, warn us about problems and give advice').correct);
+  const part = ReadingGrader.grade(key, 'They monitor our health.');
+  assert.ok(!part.correct);
+  assert.deepStrictEqual(part.ideas, [true, false, false]);
+  assert.deepStrictEqual(part.issues.map(i => i.code), ['ideas_some']);
+  const one = Object.assign({}, key, { need: 1 });
+  assert.ok(ReadingGrader.grade(one, 'They monitor our health.').correct);
+  const limited = Object.assign({}, key, { maxWords: 5 });
+  assert.strictEqual(ReadingGrader.grade(limited, 'They monitor our health, warn us about problems and give advice').error, 'TOO_LONG');
+});
+
+test('typed reading answers go through ReadingGrader and earn stars like other questions', () => {
+  const out = Scoring.applyAnswer({
+    profile: Scoring.EMPTY_STATS, sub: null, questionId: 'x-1', userAnswer: 'escape',
+    key: { kind: 'word', answer: 'escape', answers: ['escape'], explanation: { vi: [], en: [] } }, grader: Grader, now: 1
+  });
+  assert.ok(out.result.correct);
+  assert.strictEqual(out.starsEarned, 1);
+  assert.strictEqual(out.details[0].bookAnswer, 'escape');
+});
+
+test('passage bank validation catches broken keys', () => {
+  const lessons = [{ id: 'passage-word' }, { id: 'passage-open' }];
+  const bad = [{
+    id: 'rp-x', src: { kind: 'sh', test: 1 }, title: 'X', paragraphs: ['Cats like to sleep.'],
+    questions: [
+      { num: 1, type: 'word', prompt: 'Find one word', answers: ['dogs'], topics: ['passage-word'], vi: ['a'], en: ['a'] },
+      { num: 2, type: 'open', prompt: 'Why?', answer: 'Because.', ideas: [{ any: ['sleep'], vi: 'ngủ', en: 'sleep' }], topics: ['passage-open'], vi: ['a'], en: ['a'] }
+    ]
+  }];
+  const errors = buildPassageDocs(bad, lessons, { passages: 0 }, 0).errors.join('\n');
+  assert.ok(/rp-x-1: answer not found in passage/.test(errors), errors);
+  assert.ok(/rp-x-2: sample answer fails its own ideas/.test(errors), errors);
+});
+
+const bankTest = (name, fn) => test(name, () => { if (hasBank) fn(); });
+
+bankTest('passage bank: every exam groups its passages, open keys accept their sample answers', () => {
+  const exams = built.examDocs.filter(e => e.data.part === 'passage' && e.data.kind === 'test');
+  assert.ok(exams.length >= 20, 'expected the real exams and the Stemhouse tests');
+  exams.forEach(e => e.data.questionIds.forEach(id => assert.ok(QUESTIONS[id], `${e.id}: ${id} missing`)));
+  built.answerDocs.filter(d => d.data.kind).forEach(d => {
+    assert.ok(ReadingGrader.grade(d.data, d.data.answer).correct, `${d.id}: key rejects its own answer`);
+  });
+  assert.deepStrictEqual(Array.from(built.examDocs.find(e => e.id === 'rp-e2025').data.passageIds), ['rp-e2025a', 'rp-e2025b']);
 });
 
 let failed = 0;

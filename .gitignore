@@ -1,4 +1,5 @@
 resources/*.pdf
+resources/Dethi/
 .DS_Store
 Thumbs.db
 node_modules/
@@ -13,3 +14,9 @@ scripts/source/reading.js
 
 # Danh sách tài khoản có email cá nhân (mẫu: scripts/users.example.json)
 scripts/users.json
+
+# Ghi chú cá nhân
+TODO_READING.md
+
+# Ngân hàng bài đọc dài (Read a passage), có đáp án
+scripts/source/passages/

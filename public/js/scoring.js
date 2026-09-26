@@ -4,14 +4,15 @@
  *
  * Luật: đúng 1 câu +1 ★; mỗi khi chuỗi đúng liên tiếp chia hết cho 5 thì thưởng thêm +5 ★;
  * sai một câu thì chuỗi về 0. Nộp lại câu đã có trong lượt thì không chấm / cộng sao lần nữa.
- * Writing và Reading dùng chung sao, chuỗi và qstats. Câu Reading (đáp án có `choice: true`)
- * chấm bằng choiceGrader thay cho Grader.
+ * Writing và Reading dùng chung sao, chuỗi và qstats. Câu Reading chọn đáp án (`choice: true`)
+ * chấm bằng choiceGrader; câu Reading tự gõ (`kind`: word / gap / open) chấm bằng ReadingGrader.
  */
 (function (root, factory) {
-  const api = factory();
-  if (typeof module === 'object' && module.exports) module.exports = api;
+  const isNode = typeof module === 'object' && module.exports;
+  const api = factory(isNode ? require('./reading-grader') : root.ReadingGrader);
+  if (isNode) module.exports = api;
   else root.Scoring = api;
-})(typeof self !== 'undefined' ? self : this, function () {
+})(typeof self !== 'undefined' ? self : this, function (ReadingGrader) {
   'use strict';
 
   const STREAK_BONUS_EVERY = 5;
@@ -23,7 +24,7 @@
   const USER_STATS = ['stars', 'streak', 'bestStreak', 'bonusCount', 'totalAnswered', 'totalCorrect', 'qstats'];
   const EMPTY_STATS = { stars: 0, streak: 0, bestStreak: 0, bonusCount: 0, totalAnswered: 0, totalCorrect: 0, qstats: {} };
 
-  // Câu chọn đáp án (Reading): True/False hoặc A/B/C, không phân biệt hoa thường.
+  // Câu chọn đáp án (Reading): True/False hoặc A/B/C/D, không phân biệt hoa thường.
   const normChoice = s => String(s || '').trim().toLowerCase();
   const choiceGrader = {
     grade(key, userAnswer) {
@@ -47,6 +48,7 @@
    */
   function applyAnswer({ profile, sub, questionId, userAnswer, strict, key, grader, now }) {
     if (key.choice) grader = choiceGrader;
+    else if (key.kind) grader = ReadingGrader;
     const details = sub && Array.isArray(sub.details) ? sub.details.slice() : [];
     const stats = Object.assign({}, EMPTY_STATS, pick(profile, USER_STATS));
     stats.qstats = Object.assign({}, stats.qstats);
@@ -116,6 +118,8 @@
       answer: key.answer,
       explanation: key.explanation || { vi: [], en: [] },
       evidence: key.evidence || [],
+      kind: key.kind || null, ideas: g.ideas || null, keyIdeas: key.ideas ? key.ideas.map(i => ({ vi: i.vi, en: i.en })) : null,
+      answers: key.answers || null,
       starsEarned, bonus, duplicate
     };
   }

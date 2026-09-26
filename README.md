@@ -10,9 +10,13 @@ Chạy hoàn toàn trên **gói Spark (miễn phí)** của Firebase: Hosting + 
   - **Learn**: 16 bài ngữ pháp có ví dụ lấy từ đề thi.
   - **Practice**: làm từng câu, bấm Check để chấm và xem giải thích. Đúng 1 câu +1 ★, đúng 5 câu liên tiếp thưởng thêm +5 ★.
   - Chấm linh hoạt theo mẫu câu: chấp nhận mọi cách viết đúng ngữ pháp, đúng nghĩa.
-- **Reading — đọc hiểu** (60 thư + 60 đoạn văn, 480 câu từ 60 đề của 2 quyển), chia 2 phần, mỗi phần có Learn + Practice như Writing:
-  - **Read a letter**: 4 bài học (bố cục thư, True/False, ý chính, câu hỏi chi tiết); câu 1–4 của đề.
-  - **Read a text**: 5 bài học (cách làm, tính từ cảm xúc, từ nối, thời gian, danh từ); câu 5–8 điền khuyết.
+- **Reading — đọc hiểu**, chia 3 phần, mỗi phần có Learn + Practice như Writing:
+  - **Read a letter**: 60 thư từ 60 đề của 2 quyển; 4 bài học (bố cục thư, True/False, ý chính, câu hỏi chi tiết); câu 1–4 của đề.
+  - **Read a text**: 60 đoạn văn; 5 bài học (cách làm, tính từ cảm xúc, từ nối, thời gian, danh từ); câu 5–8 điền khuyết.
+  - **Read a passage**: bài đọc dài từ đề thi thật 2023–2026 và sách Stemhouse (10 đề thi thử + tuyển tập); 8 bài học.
+    Ngoài True/False và trắc nghiệm (3–4 phương án) còn có các câu phải **tự gõ** đáp án, chấm như đề thi
+    (`public/js/reading-grader.js`): **tìm từ** theo định nghĩa (sai chính tả / đổi dạng từ / thừa từ là sai),
+    **điền khuyết tự viết từ** (có 3 lựa chọn hoặc khung từ) và **câu hỏi tự viết** chấm theo ý (mỗi ý có vài cách diễn đạt).
   - Practice: làm từng câu cạnh bài đọc; sau khi Check, chỗ chứa đáp án trong bài được tô vàng kèm giải thích vi/en.
     Luyện theo đề, theo dạng câu hỏi, tất cả, ôn câu sai, luyện mỗi ngày. Sao và chuỗi đúng dùng chung với Writing.
   - Đáp án theo sách; giải thích và câu bằng chứng là phần soạn thêm.
@@ -29,6 +33,7 @@ public/                   Firebase Hosting
   js/app.js               giao diện, điều hướng
   js/api.js               Auth + Firestore; api.checkAnswer = mở khoá → lấy đáp án → chấm → lưu
   js/grader.js            bộ chấm theo mẫu câu (dùng chung cho trình duyệt và scripts/seed.js)
+  js/reading-grader.js    bộ chấm câu Reading tự gõ: tìm từ, điền khuyết tự viết, câu hỏi tự viết (chấm theo ý)
   js/scoring.js           tính sao, chuỗi đúng, chi tiết bài nộp
   js/firebase-config.js   cấu hình web app
   js/lessons*.js, i18n.js bài giảng (Writing: lessons.js, Reading: lessons-reading.js) và chuỗi giao diện
@@ -38,6 +43,7 @@ scripts/
   users.example.json      mẫu danh sách tài khoản (users.json thật có email nên không lên repo)
   source/data.js          dữ liệu gốc Writing có đáp án — chỉ để trên máy (.gitignore), không lên repo / web
   source/reading.js       dữ liệu gốc Reading (bài đọc, đáp án, giải thích) — cũng chỉ để trên máy
+  source/passages/*.js    bài đọc dài (Read a passage): đề thật, Stemhouse — cũng chỉ để trên máy; định dạng ở seed.js
 tests/run.js              test logic chấm điểm: node tests/run.js
 firestore.rules           quyền truy cập
 ```
@@ -47,8 +53,8 @@ firestore.rules           quyền truy cập
 | Collection | Nội dung | Client |
 |---|---|---|
 | `questions/{id}` | Writing: `type`, `cues`, `topics`, `source [{book, test}]`, `order` · Reading: thêm `part`, `passage`, `num`, `prompt`, `options` | thành viên đọc; khách chỉ `get` các câu trong `exams/trial` |
-| `passages/{id}` | bài đọc Reading: `part` (`letter`/`text`), `title`, `paragraphs` / `text`, `questionIds` | thành viên đọc; khách chỉ `get` các bài trong `exams/trial.passageIds` |
-| `answers/{id}` | Writing: `answer`, `accept`, `defs`, `explanation {vi, en}`, `cues` · Reading: `choice`, `answer`, `evidence`, `explanation` | đọc **từng câu**, chỉ sau khi đã nộp câu đó; không `list` được. Câu làm thử: ai cũng `get` được |
+| `passages/{id}` | bài đọc Reading: `part` (`letter`/`text`/`passage`), `title`, `paragraphs` / `text`, `questionIds` (bài dài thêm `genre`, `intro`, `box`, `source {kind…}`) | thành viên đọc; khách chỉ `get` các bài trong `exams/trial.passageIds` |
+| `answers/{id}` | Writing: `answer`, `accept`, `defs`, `explanation {vi, en}`, `cues` · Reading: `choice`, `answer`, `evidence`, `explanation` (câu tự gõ: `kind` word/gap/open, `answers` hoặc `ideas`) | đọc **từng câu**, chỉ sau khi đã nộp câu đó; không `list` được. Câu làm thử: ai cũng `get` được |
 | `answerUnlocks/{uid}_{qid}` | câu trả lời đầu tiên của thí sinh | tạo một lần, không sửa / xoá |
 | `usernames/{username}` | `email` — để đăng nhập bằng username | ai cũng `get` được từng username; không `list`, không ghi |
 | `exams/{id}` | `questionIds`, `kind` (`test` / `all` / `topic` / `trial`), `title` | thành viên đọc; khách chỉ `get` được `exams/trial` |
@@ -89,6 +95,6 @@ rules giới hạn mỗi lần trả lời tối đa +6 ★ và đúng +1 lượ
      Domain `peter-tdn.github.io` phải có trong *Firebase Authentication → Settings → Authorized domains*.
 
 Muốn chấp nhận thêm một cách viết đúng: thêm mẫu vào `accept` của câu trong `scripts/source/data.js` rồi chạy lại `seed.js`.
-`data.js` và `reading.js` không nằm trong repo (repo public) — hãy tự sao lưu hai file này.
+`data.js`, `reading.js` và thư mục `source/passages/` không nằm trong repo (repo public) — hãy tự sao lưu.
 
 Tài liệu PDF gốc (thư mục `resources/`) không được đưa lên repo.

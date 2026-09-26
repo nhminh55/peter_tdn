@@ -220,7 +220,20 @@ window.READING_LESSONS = {
   <div class="ex-cue">You can also enjoy a car trip around the area, (8)___ you should arrive early on busy days.</div>
   <div class="ex-ans">Được đi chơi (tốt) ↔ phải đến sớm (lưu ý) — hai ý <b>ngược nhau</b> → <mark>but</mark></div>
 </div>
-<div class="warn"><b>because</b> và <b>so</b> dễ nhầm: <i>A because B</i> = <i>B, so A</i>.<br>Guides are ready to help, <b>so</b> you can ask them anything. (giúp đỡ → nên hỏi được)</div>`
+<div class="warn"><b>because</b> và <b>so</b> dễ nhầm: <i>A because B</i> = <i>B, so A</i>.<br>Guides are ready to help, <b>so</b> you can ask them anything. (giúp đỡ → nên hỏi được)</div>
+
+<h3>Từ nối đầu câu: However, Therefore, Moreover</h3>
+<p>Ba từ này đứng <b>đầu câu</b>, có <b>dấu phẩy</b> theo sau, và nối câu đó với <b>câu trước</b>.</p>
+<table class="tbl">
+  <tr><th>Từ nối</th><th>Nghĩa</th><th>Ví dụ</th></tr>
+  <tr><td><b>However,</b></td><td>tuy nhiên — ý <b>ngược lại</b> câu trước</td><td>The test was hard. <b>However</b>, everyone passed.</td></tr>
+  <tr><td><b>Therefore,</b></td><td>vì vậy — <b>kết quả</b> của câu trước</td><td>It was raining. <b>Therefore</b>, we stayed at home.</td></tr>
+  <tr><td><b>Moreover,</b></td><td>hơn nữa — <b>thêm một ý</b> cùng chiều</td><td>The park is big. <b>Moreover</b>, it is free.</td></tr>
+</table>
+<div class="ex">
+  <div class="ex-cue">Đề thi 2026: <i>Khang jumped back in shock and let out a loud scream, which surprised everyone. (8)______, Ms. Thao just smiled and gave us a big thumbs-up.</i> — A. Therefore B. Moreover C. However</div>
+  <div class="ex-ans">Mọi người giật mình ↔ cô chỉ mỉm cười: hai ý <b>ngược nhau</b> → <mark>However</mark></div>
+</div>`
     },
     {
       id: 'text-time',
@@ -269,6 +282,442 @@ window.READING_LESSONS = {
     }
   ]
 };
+
+// Read a passage: bài đọc dài kiểu đề thật 2023–2026 và Stemhouse (8 câu: trắc nghiệm, True/False,
+// tìm từ, câu tự viết, điền khuyết). `id` trùng với `topics` của câu hỏi trong scripts/source/passages/.
+window.READING_LESSONS.passage = [
+  {
+    id: 'passage-method',
+    title: 'Cách làm bài đọc dài',
+    icon: '🧭',
+    short: 'Bố cục đề, thứ tự làm bài, cách chấm',
+    body: `
+<p>Đề thi: <i>Read the following passage carefully. Do the tasks below the passage.</i> Bài đọc dài hơn bức thư, có nhiều đoạn, đôi khi có <b>tiêu đề nhỏ</b> (<i># Switzerland</i>) hoặc đoạn đánh chữ <b>A, B, C, D</b>.</p>
+<h3>Đề trông như thế nào?</h3>
+<table class="tbl">
+  <tr><th>Đề</th><th>Bài đọc</th><th>Câu hỏi</th></tr>
+  <tr><td><b>Đề thi 2023, 2024</b></td><td>1 bài dài: <i>Recycling around the World</i>, <i>The Moon and its folktales</i></td><td><b>6 câu</b>: 2 True/False, 2 trắc nghiệm A/B/C, 1 câu viết lý do, 1 câu tìm từ</td></tr>
+  <tr><td><b>Stemhouse đề 1–10</b></td><td>1 bài dài (đề 7, 9: 2 bài ngắn)</td><td><b>8 câu</b>: Q1–3 trắc nghiệm, Q4–6 True/False, Q7 tự viết câu trả lời, Q8 tìm từ</td></tr>
+  <tr><td><b>Đề thi 2025, 2026</b></td><td>1 thư / đoạn văn + 1 đoạn điền khuyết</td><td><b>4 câu</b> (True/False, ý chính, chi tiết) + <b>4 chỗ trống</b> (5)–(8)</td></tr>
+</table>
+
+<h3>6 bước làm bài</h3>
+<ol class="steps">
+  <li><b>Đọc câu hỏi trước</b>. Gạch chân <b>từ khóa</b> của từng câu: tên riêng, con số, và các chữ quan trọng như <b>NOT, only, why, THREE</b>.</li>
+  <li><b>Đọc lướt cả bài</b> một lượt để biết bài nói về gì. Ghi nhanh bên lề mỗi đoạn nói gì, ví dụ: <i>đoạn A: Geneva tắt đèn</i>.</li>
+  <li>Với mỗi câu, <b>tìm đoạn có từ khóa</b>. Tên riêng, con số, chữ in hoa là dễ tìm nhất.</li>
+  <li><b>Đọc kỹ 1–2 câu</b> quanh chỗ đó. Đó là <b>bằng chứng</b> — gạch chân nó.</li>
+  <li><b>Trả lời theo bằng chứng</b> trong bài, không theo điều mình biết ngoài đời.</li>
+  <li><b>Kiểm tra</b>: chính tả, số từ, True/False viết đủ, câu nào còn bỏ trống.</li>
+</ol>
+<div class="tip"><b>Thứ tự làm:</b> câu chi tiết, True/False thường đi <b>theo thứ tự bài đọc</b> (câu trước ở đoạn đầu, câu sau ở đoạn sau). Câu <i>mainly about / best title</i> nên làm <b>sau cùng</b>: đọc xong cả bài mới thấy rõ ý chính.</div>
+<div class="tip"><b>Thời gian:</b> đừng "đứng" quá lâu ở một câu. Chưa tìm ra thì đánh dấu, làm câu khác, rồi quay lại. Chừa <b>2–3 phút cuối</b> để soát chính tả.</div>
+
+<h3>Cách chấm rất chặt</h3>
+<p>Theo hướng dẫn chấm của Stemhouse, những lỗi nhỏ cũng làm mất điểm:</p>
+<table class="tbl">
+  <tr><th>Lỗi</th><th>Bị chấm</th></tr>
+  <tr><td>Viết tắt <s>T</s> / <s>F</s> thay vì <b>True</b> / <b>False</b></td><td>trừ <b>1 điểm</b></td></tr>
+  <tr><td>Sai chính tả từ phải viết</td><td><b>0 điểm</b></td></tr>
+  <tr><td>Tìm từ: <b>đổi dạng từ</b> — <s>priorities</s> thay vì <b>priority</b>, <s>collides</s> thay vì <b>collide</b></td><td><b>0 điểm</b> hoặc trừ 1</td></tr>
+  <tr><td>Viết <b>thừa từ</b> — <s>a</s> priority, <s>an</s> advantage, <s>is</s> essential</td><td>trừ <b>1 điểm mỗi từ thừa</b></td></tr>
+  <tr><td>Câu tự viết: diễn đạt khác nhưng <b>đúng ý</b></td><td>vẫn được điểm ✔</td></tr>
+  <tr><td>Câu tự viết: sai ngữ pháp / chính tả</td><td>trừ <b>0,5</b> mỗi lỗi</td></tr>
+  <tr><td>Thiếu ý (đề hỏi <b>THREE</b> things mà chỉ viết 2)</td><td>chỉ được <b>một phần</b> điểm</td></tr>
+</table>
+<div class="warn">Cách an toàn nhất: <b>chép đúng từng chữ trong bài</b>. Chép thì không sai chính tả, không đổi dạng từ. Viết xong, đếm lại số từ và so với đề.</div>`
+  },
+  {
+    id: 'passage-main',
+    title: 'Ý chính, tựa bài, tựa đoạn',
+    icon: '🎯',
+    short: 'mainly about, best title, paragraph B',
+    body: `
+<p>Các kiểu hỏi ý chính trong đề:</p>
+<ul>
+  <li><i>The passage is <b>mainly about</b> ______.</i> (Đề thi 2023, Stemhouse đề 5)</li>
+  <li><i>The <b>best title</b> for the passage might be ______.</i> (Đề thi 2024, Stemhouse đề 3, 8)</li>
+  <li><i>The <b>second paragraph</b> is mainly about ______.</i> (Đề thi 2026)</li>
+  <li><i>Choose the best <b>headline for paragraph B</b>.</i> (Stemhouse đề 10)</li>
+</ul>
+<div class="formula">
+  <div>Ý chính = điều mà <b>cả bài</b> (hoặc <b>cả đoạn</b> được hỏi) nói tới — không lớn hơn, không nhỏ hơn.</div>
+</div>
+
+<h3>Cách tìm</h3>
+<ol class="steps">
+  <li>Đọc kỹ <b>câu đầu của bài</b> (hoặc câu đầu của đoạn được hỏi) — chủ đề thường nằm ở đó.</li>
+  <li>Đọc lướt câu đầu các đoạn sau: chúng có cùng nói về chủ đề đó không?</li>
+  <li>Với mỗi phương án, hỏi: <b>"Nó có bao được cả bài không?"</b></li>
+  <li>Loại các phương án bẫy (bảng dưới), chọn cái còn lại.</li>
+</ol>
+
+<h3>3 loại phương án bẫy</h3>
+<table class="tbl">
+  <tr><th>Bẫy</th><th>Ví dụ trong đề</th></tr>
+  <tr><td><b>Chỉ một phần</b> của bài</td><td>Đề thi 2023: <s>industrial waste in Senegal</s>, <s>Swiss people and recycling</s> — mỗi cái chỉ nói về 1 trong 3 nước.</td></tr>
+  <tr><td><b>Quá chung chung</b></td><td>Stemhouse đề 8: <s>Fun Holidays</s>, <s>A Good Trip</s> — đúng chủ đề du lịch nhưng không nói bài là <b>lời khuyên</b>.</td></tr>
+  <tr><td><b>Sai ý / không có trong bài</b></td><td>Đề thi 2024: <s>Important Scientific Facts about the Moon</s> — bài kể <b>truyện dân gian</b>, không phải sự thật khoa học.</td></tr>
+</table>
+
+<h3>Ví dụ</h3>
+<div class="ex">
+  <div class="ex-cue">Đề thi 2023: <i>New statistics give a view of recycling <b>around the world</b>. Here are <b>three of the countries</b> in the report.</i></div>
+  <div class="ex-ans">Bài nói cả 3 nước → <mark>a quick view of how nations recycle</mark></div>
+</div>
+<div class="ex">
+  <div class="ex-cue">Đề thi 2026 — đoạn 2: <i>People have <b>celebrated</b> the summer solstice for thousands of years. The most famous celebration happens at Stonehenge… thousands of people gather there to watch this magical sunrise.</i></div>
+  <div class="ex-ans">Cả đoạn nói về việc <b>ăn mừng, ngắm mặt trời mọc</b> → <mark>the most popular activity on the June solstice</mark> (không phải <s>the beauty of the ancient stones</s>)</div>
+</div>
+<div class="ex">
+  <div class="ex-cue">Stemhouse đề 3: bài nói về 4 kỹ năng (4Cs) giúp <i>future success</i>.</div>
+  <div class="ex-ans"><mark>Essential skills for a successful life</mark> — loại <s>How to become a responsible citizen</s> (chỉ một phần nhỏ) và <s>Skills for bad citizens</s> (sai ý).</div>
+</div>
+<div class="ex">
+  <div class="ex-cue">Stemhouse đề 10 — tựa cho <b>đoạn B</b>: đèn làm động vật ngủ ít, chim lạc đường, côn trùng và chim đâm vào nhà cao tầng rồi chết.</div>
+  <div class="ex-ans">Cả đoạn nói về hại cho <b>thiên nhiên</b> → <mark>A threat to nature</mark></div>
+</div>
+<div class="tip">Câu hỏi tựa đoạn: hai phương án còn lại thường là <b>tựa của đoạn khác</b>. Stemhouse đề 10: <i>What humans are missing out</i> là đoạn <b>C</b>, <i>Actions that should be taken</i> là đoạn <b>D</b>. Nhớ đọc đúng đoạn đề hỏi!</div>`
+  },
+  {
+    id: 'passage-detail',
+    title: 'Câu hỏi chi tiết và câu NOT',
+    icon: '🔍',
+    short: 'According to…, Wh-, Which is NOT…',
+    body: `
+<p>Câu chi tiết hỏi <b>một thông tin cụ thể</b> trong bài. Các kiểu thường gặp:</p>
+<ul>
+  <li><i><b>According to</b> the passage / the first paragraph, …</i> — theo bài đọc / theo đoạn 1…</li>
+  <li>Câu hỏi <b>Wh-</b>: <i>How many…? Why…? What…?</i></li>
+  <li>Câu hoàn thành: <i>People in Senegal ______.</i> (Đề thi 2023)</li>
+  <li>Câu <b>NOT</b>: <i>Which of the following is <b>NOT</b>…?</i></li>
+</ul>
+
+<h3>4 bước</h3>
+<ol class="steps">
+  <li>Gạch chân <b>từ khóa</b> trong câu hỏi: <i>Senegal, self-driving cars, 26 September 2019</i>…</li>
+  <li><b>Tìm</b> từ khóa đó trong bài, đọc kỹ câu chứa nó và câu sau.</li>
+  <li>So từng phương án với câu trong bài. Đáp án đúng thường <b>nói lại bằng từ khác</b>.</li>
+  <li>Loại phương án có từ giống bài nhưng <b>sai ý</b>.</li>
+</ol>
+
+<h3>Đáp án "nói lại bằng từ khác"</h3>
+<table class="tbl">
+  <tr><th>Trong bài</th><th>Đáp án</th><th>Đề</th></tr>
+  <tr><td>people don’t throw away any items that they can use for something else</td><td><b>make good use of old products</b></td><td>Đề thi 2023</td></tr>
+  <tr><td>guide pupils to choose the best ones for them</td><td>books were <b>suitable</b></td><td>Đề thi 2025</td></tr>
+  <tr><td>the sun rises perfectly in line with these ancient stones</td><td><b>observe the positioning of the sun</b></td><td>Đề thi 2026</td></tr>
+  <tr><td>these vehicles will help reduce traffic jams and accidents</td><td>They help reduce <b>car accidents and traffic jams</b></td><td>Stemhouse đề 4</td></tr>
+</table>
+<div class="warn"><b>Bẫy "có trong bài nhưng sai ý"</b>
+  <ul>
+    <li>Đề thi 2026: <s>see 4,000 giant circles</s> — 4,000 là <b>số năm tuổi</b> (<i>4,000-year-old</i>), chỉ có một vòng đá.</li>
+    <li>Stemhouse đề 10: <i>Why was the light turned off?</i> — <s>There was a problem with the electricity</s>: bài nói đó là chuyện <b>thường</b> xảy ra, <b>nhưng lần này</b> (<i>but this time</i>) tắt đèn <b>to allow people to go outside and observe the stars</b>.</li>
+  </ul>
+</div>
+
+<h3>Câu NOT: kiểm tra và gạch từng phương án</h3>
+<p>Câu có <b>NOT</b> hỏi cái <b>không có</b> trong bài. Đừng tìm một câu — hãy <b>kiểm tra cả 3 phương án</b>: cái nào tìm thấy trong bài thì <b>gạch đi</b>.</p>
+<div class="ex">
+  <div class="ex-cue">Đề thi 2024: <i>Which of the following tales does <b>NOT</b> include any animals?</i></div>
+  <div class="ex-ans">A. <s>The Mexican tale</s> — có con thỏ (<i>a rabbit</i>)<br>C. <s>The Native American tale</s> — có con ếch và con sói (<i>a frog, a wolf</i>)<br>B. The Hawaiian tale — chỉ có một người phụ nữ và cây cầu cầu vồng → <mark>B</mark></div>
+</div>
+<div class="ex">
+  <div class="ex-cue">Stemhouse đề 3: <i>Which of the following is <b>NOT</b> one of the "4Cs"?</i> — A. Communication B. Creativity C. Calculation</div>
+  <div class="ex-ans">Bài kể: <s>Communication</s>, Collaboration, Critical Thinking, <s>Creativity</s> → <mark>C. Calculation</mark></div>
+</div>
+<div class="tip">Khi đọc đề, <b>khoanh tròn chữ NOT</b> để không quên. Nhiều bạn tìm thấy một phương án trong bài là chọn luôn — đó lại chính là đáp án <b>sai</b>!</div>`
+  },
+  {
+    id: 'passage-tf',
+    title: 'True / False với bài dài',
+    icon: '✅',
+    short: 'only, all, never; so số; diễn đạt lại',
+    body: `
+<p>Mỗi câu True/False là một câu nói về bài. Tìm chỗ trong bài nói về cùng chuyện đó rồi so từng chi tiết.</p>
+<div class="warn">Luôn viết <b>đủ chữ True / False</b>. Viết tắt <s>T</s> / <s>F</s> bị trừ <b>1 điểm</b> (hướng dẫn chấm Stemhouse).</div>
+
+<h3>1. Diễn đạt lại: cùng ý, khác từ → True</h3>
+<table class="tbl">
+  <tr><th>Câu đề</th><th>Trong bài</th><th>Đáp án</th></tr>
+  <tr><td>No other objects are as bright as the Moon in the night sky.</td><td>The Moon is the biggest and <b>brightest</b> object in the night sky.</td><td><b>True</b> (Đề thi 2024)</td></tr>
+  <tr><td>In Switzerland people recycle a lot of household items.</td><td>local people only have to <b>throw away a few</b> household items</td><td><b>True</b> (Đề thi 2023)</td></tr>
+</table>
+
+<h3>2. So con số</h3>
+<div class="ex">
+  <div class="ex-cue">Đề thi 2023: <i>The United States recycled a <b>higher</b> percentage of its paper than that of its cans.</i><br>Bài: <i>it recycled <b>48%</b> of its paper, 40% of its plastic bottles and <b>55%</b> of its cans.</i></div>
+  <div class="ex-ans">48% &lt; 55% → giấy <b>thấp hơn</b> lon → <mark>False</mark></div>
+</div>
+<div class="ex">
+  <div class="ex-cue">Stemhouse đề 9: <i>Cheetahs can reach speeds of up to <b>80</b> miles per hour.</i> — Bài: <i>up to <b>60 to 70</b> miles per hour</i></div>
+  <div class="ex-ans">Số khác bài → <mark>False</mark></div>
+</div>
+<div class="tip">Thấy câu có <b>số, phần trăm, năm</b> → tìm đúng con số đó trong bài, và xem nó đi với <b>cái gì</b> (paper hay cans? children hay parents?).</div>
+
+<h3>3. Từ "tuyệt đối": only, all, every, never…</h3>
+<p>Câu đề có <b>only, all, everybody, every, never, always</b> thường là <b>False</b>, vì bài hay nói "không phải chỉ", "không phải tất cả". Kiểm tra kỹ:</p>
+<table class="tbl">
+  <tr><th>Câu đề</th><th>Bài nói</th><th>Đáp án</th></tr>
+  <tr><td><b>Only</b> children like Baby Three dolls in Vietnam.</td><td>adored by children <b>and adults alike</b></td><td><b>False</b> (Stemhouse đề 2)</td></tr>
+  <tr><td>the 4Cs are relevant <b>only</b> for students pursuing careers in the arts</td><td>success in <b>any</b> occupation</td><td><b>False</b> (Stemhouse đề 3)</td></tr>
+  <tr><td><b>Everybody</b> has to renew their passports every ten years.</td><td><b>Children</b> need a new passport every <b>five</b> years</td><td><b>False</b> (Stemhouse đề 8)</td></tr>
+  <tr><td>Light pollution <b>only</b> causes minor issues for humans…</td><td>còn làm ta <b>không thấy được</b> dải Ngân Hà (<i>the Milky Way</i>)</td><td><b>False</b> (Stemhouse đề 10)</td></tr>
+</table>
+
+<h3>4. Từ trái nghĩa, đổi một chữ</h3>
+<ul>
+  <li>Đề thi 2026: <i>daytime was <b>longer</b>… south of the equator</i> ↔ bài: Nam bán cầu là <i>the <b>shortest</b> day</i> → <b>False</b>.</li>
+  <li>Đề thi 2024: <i>an <b>original</b> tale of Japan</i> ↔ bài: <i>the Japanese <b>version</b> of an <b>Indian</b> tale</i> → <b>False</b>.</li>
+</ul>
+
+<h3>5. "The passage suggests / implies / indicates…"</h3>
+<p>Nghĩa là "bài đọc <b>cho thấy</b>…". Tìm đoạn nói về ý đó và xem bài <b>khuyên gì</b>.</p>
+<div class="ex">
+  <div class="ex-cue">Stemhouse đề 2: <i>The passage suggests that parents should <b>avoid</b> talking about the environmental impact of toys.</i></div>
+  <div class="ex-ans">Lời khuyên trong bài: <i><b>Talk about</b> how making too many toys is bad for the Earth</i> — ngược lại → <mark>False</mark></div>
+</div>
+<div class="warn">Đổi đúng <b>một chữ</b> là câu sai rồi: <i>avoid ↔ talk about, longer ↔ shortest, only ↔ and adults</i>. Đọc chậm từng chữ trong câu đề.</div>`
+  },
+  {
+    id: 'passage-infer',
+    title: 'Câu suy luận',
+    icon: '💭',
+    short: 'implies, most likely, tính toán',
+    body: `
+<p>Câu suy luận hỏi điều bài <b>không nói thẳng</b>, nhưng <b>có manh mối</b> để đoán ra.</p>
+<ul>
+  <li><i>The passage <b>implies / suggests</b> that…</i> — bài ngụ ý rằng…</li>
+  <li><i>What is <b>most likely</b> to happen next?</i> — điều gì <b>nhiều khả năng</b> xảy ra tiếp?</li>
+  <li><i><b>You can tell that</b>… because…</i> — bạn biết được… vì…</li>
+  <li><i>Why is Jamie daydreaming?</i> — hỏi lý do/cảm xúc không được nói ra.</li>
+</ul>
+
+<h3>3 bước</h3>
+<ol class="steps">
+  <li>Tìm <b>manh mối</b> trong bài: hành động, lời nói, cảm xúc của nhân vật.</li>
+  <li>Ghép các manh mối lại: "Nếu thế này… thì chắc là…".</li>
+  <li>Chọn đáp án <b>được manh mối ủng hộ</b>. Loại đáp án <b>đi quá xa</b>, không có chứng cứ.</li>
+</ol>
+
+<h3>Truyện "The Big Interview" (Stemhouse tuyển tập)</h3>
+<table class="tbl">
+  <tr><th>Câu hỏi</th><th>Manh mối</th><th>Đáp án</th></tr>
+  <tr><td>What is most likely to happen next?</td><td>Câu cuối: Ms. Swanson gọi <i>"Charles Locke?"</i></td><td><b>Charles will talk to Ms. Swanson.</b></td></tr>
+  <tr><td>You can tell that the girl is nervous because ______.</td><td><i>she tore a card into tiny pieces</i></td><td><b>she tears up one of her index cards</b></td></tr>
+  <tr><td>The student who gets the job will be working ______.</td><td>cô giáo <b>khoa học</b> cần <i>a <b>lab</b> helper</i></td><td><b>in the science lab</b></td></tr>
+</table>
+<div class="warn">Bẫy: <i>her face turns red</i>, <i>her palms are sweaty</i> là của <b>Charles</b>, không phải cô bạn. Đọc kỹ xem manh mối là của <b>ai</b>.</div>
+
+<h3>Truyện "A Long Day" (Stemhouse tuyển tập)</h3>
+<table class="tbl">
+  <tr><th>Câu hỏi</th><th>Manh mối</th><th>Đáp án</th></tr>
+  <tr><td>Why is Jamie daydreaming?</td><td>Jamie đã muốn đi lễ hội; cô <i>thought about all of the food stalls at the festival</i></td><td><b>She wants to be somewhere else.</b></td></tr>
+  <tr><td>What is most likely to happen next?</td><td><i>The customers just kept coming!</i></td><td><b>Jamie will become busy again.</b></td></tr>
+  <tr><td>What will Jamie most likely do when she gets home?</td><td>cô rất muốn đi lễ hội</td><td><b>see if the festival is still going on</b></td></tr>
+</table>
+<div class="tip">Loại đáp án <b>đi quá xa</b>: <s>Jamie will leave and go to the festival</s> — mẹ đang cần Jamie giúp (<i>I need your help</i>), bạn ấy sẽ không bỏ đi.</div>
+
+<h3>Suy luận bằng phép tính</h3>
+<div class="ex">
+  <div class="ex-cue">Stemhouse đề 8: <i>Children need a new passport <b>every five years</b>…</i><br>Câu hỏi: <i>Now, Daisy is ten. Her passport was made in <b>2021</b>. Which year is she going to change her new passport?</i></div>
+  <div class="ex-ans">Daisy 10 tuổi → là trẻ em → 5 năm đổi một lần: 2021 + 5 = <mark>She is going to change her passport in 2026.</mark></div>
+</div>
+
+<h3>"The passage implies…" dạng True/False</h3>
+<ul>
+  <li>Stemhouse đề 10: <i>The writer thinks that it is a pity that people today can’t enjoy the night sky.</i> — bài: <i>we almost <b>never</b> witness one of the <b>greatest sights</b> in the world</i> → tiếc thật → <b>True</b>.</li>
+  <li>Stemhouse đề 5: <i>people are <b>born with</b> the natural ability to go back to the "resilient zone"</i> — bài: <i>We can <b>learn</b> to find our resilient zone</i> → phải học, không phải sinh ra đã có → <b>False</b>.</li>
+</ul>`
+  },
+  {
+    id: 'passage-word',
+    title: 'Tìm từ theo định nghĩa',
+    icon: '🔤',
+    short: 'Write down ONE word which means…',
+    body: `
+<p>Kiểu câu này có trong mọi đề:</p>
+<ul>
+  <li><i>Write down <b>ONE word</b> that you find in the passage which means "…".</i></li>
+  <li><i>Write down <b>two words</b>… / Find <b>TWO words</b> in the passage that mean "…".</i></li>
+  <li><i>Write down <b>NO MORE THAN TWO WORDS</b>…</i> — được viết 1 hoặc 2 từ.</li>
+</ul>
+
+<h3>5 bước</h3>
+<ol class="steps">
+  <li>Đọc định nghĩa, đoán <b>loại từ</b> cần tìm (bảng dưới).</li>
+  <li>Đoán <b>chủ đề</b> của từ và tìm <b>đoạn nói về chủ đề đó</b>. "a small waterproof bag… when you are travelling" → đoạn nói về đồ mang theo.</li>
+  <li>Thay thử từ tìm được vào định nghĩa: câu trong bài có còn đúng nghĩa không?</li>
+  <li><b>Chép y nguyên</b> — đúng dạng số ít/số nhiều, đúng đuôi <i>-s, -ed, -ing</i> như trong bài.</li>
+  <li><b>Đếm số từ</b>: ONE = 1 từ, TWO = đúng 2 từ. Không thêm <i>a, the, is</i>.</li>
+</ol>
+
+<h3>Đoán loại từ từ định nghĩa</h3>
+<table class="tbl">
+  <tr><th>Định nghĩa bắt đầu bằng</th><th>Loại từ</th><th>Ví dụ</th></tr>
+  <tr><td><b>to</b> + động từ: <i>to exchange…, to hit…, to handle…</i></td><td>động từ</td><td>trade, collide, deal with</td></tr>
+  <tr><td><b>a / an / the</b> + danh từ: <i>a thing…, an animal…</i></td><td>danh từ</td><td>priority, advantage, prey</td></tr>
+  <tr><td>tính từ: <i>kind, calm and mild; completely necessary</i></td><td>tính từ</td><td>gentle, essential</td></tr>
+  <tr><td>V-ing: <i>putting something in a place…</i></td><td>dạng <b>-ing</b></td><td>displaying</td></tr>
+</table>
+
+<h3>Ví dụ trong đề</h3>
+<table class="tbl">
+  <tr><th>Định nghĩa</th><th>Từ</th><th>Đề</th></tr>
+  <tr><td>an important thing that needs to be done before other things</td><td><b>priority</b></td><td>Stemhouse đề 1</td></tr>
+  <tr><td>to exchange something you have for something someone else has</td><td><b>trade</b></td><td>Stemhouse đề 2</td></tr>
+  <tr><td>putting something in a place where people can see it easily</td><td><b>displaying</b></td><td>Stemhouse đề 2</td></tr>
+  <tr><td>a thing that helps you to be better or more successful than other people</td><td><b>advantage</b></td><td>Stemhouse đề 3</td></tr>
+  <tr><td>completely necessary and extremely important</td><td><b>essential</b></td><td>Stemhouse đề 4</td></tr>
+  <tr><td>to handle, manage negative feelings or solve problems (TWO words)</td><td><b>deal with</b></td><td>Stemhouse đề 5</td></tr>
+  <tr><td>the hard work and effort that somebody puts into an activity</td><td><b>dedication</b></td><td>Stemhouse đề 6</td></tr>
+  <tr><td>kind, calm and mild</td><td><b>gentle</b></td><td>Stemhouse đề 7</td></tr>
+  <tr><td>a small waterproof bag… (NO MORE THAN TWO WORDS)</td><td><b>washbag</b> / <b>wash bag</b></td><td>Stemhouse đề 8</td></tr>
+  <tr><td>an animal that is hunted and killed for food by another animal</td><td><b>prey</b></td><td>Stemhouse đề 9</td></tr>
+  <tr><td>to hit something or someone by accident</td><td><b>collide</b></td><td>Stemhouse đề 10</td></tr>
+  <tr><td>get away</td><td><b>escape</b></td><td>Đề thi 2024</td></tr>
+  <tr><td>things people use in their home (two words)</td><td><b>household items</b></td><td>Đề thi 2023</td></tr>
+  <tr><td>the reason why Sakra did not let the rabbit die (two words only)</td><td><b>its generosity</b></td><td>Đề thi 2024</td></tr>
+</table>
+
+<div class="warn"><b>Chấm rất chặt</b> (hướng dẫn chấm Stemhouse):
+  <ul>
+    <li>Sai chính tả → <b>0 điểm</b>.</li>
+    <li>Đổi dạng từ: <s>priorities</s> (bài: priority), <s>collides</s> (bài: collide) → <b>0 điểm</b> hoặc trừ 1.</li>
+    <li>Thừa từ: <s>a</s> washbag, <s>an</s> advantage, <s>is</s> essential → trừ <b>1 điểm mỗi từ thừa</b>.</li>
+  </ul>
+</div>
+<div class="tip">Đề cần <b>hai từ</b> thì phải đủ hai: Đề thi 2024 cần <b>its generosity</b> — chỉ viết <i>generosity</i> là thiếu. Chữ <b>for</b> trong <i>saved the rabbit <b>for</b> its generosity</i> nghĩa là "vì" — manh mối cho lý do.</div>`
+  },
+  {
+    id: 'passage-open',
+    title: 'Câu hỏi tự viết',
+    icon: '✍️',
+    short: 'Why…? What…? Chép đúng cụm từ trong bài',
+    body: `
+<p>Ở câu này bạn phải <b>tự viết câu trả lời</b>. Ví dụ trong đề:</p>
+<ul>
+  <li><i>Write down the reason why the record in the US is improving quickly.</i> (Đề thi 2023)</li>
+  <li><i>According to the passage, what should critical thinkers avoid doing?</i> (Stemhouse đề 3)</li>
+  <li><i>How can wearable devices with AI help us take care of our health?</i> (Stemhouse đề 4)</li>
+  <li><i>What <b>THREE</b> things can we do to find our resilient zone? Write NO MORE THAN fifteen words.</i> (Stemhouse đề 5)</li>
+</ul>
+
+<h3>6 bước</h3>
+<ol class="steps">
+  <li>Gạch chân <b>từ để hỏi</b> (why, what, how) và <b>từ khóa</b> (record, critical thinkers, wearable devices).</li>
+  <li>Tìm <b>câu chìa khóa</b> trong bài có từ khóa đó.</li>
+  <li>Trả lời <b>đúng kiểu câu hỏi</b> (bảng dưới).</li>
+  <li><b>Chép cụm từ chính</b> từ bài để không sai chính tả.</li>
+  <li>Viết <b>ngắn gọn</b>, đúng giới hạn số từ nếu đề có (<i>NO MORE THAN fifteen words</i>).</li>
+  <li>Đề hỏi mấy ý thì viết <b>đủ</b> mấy ý: <b>THREE</b> things → 3 ý.</li>
+</ol>
+
+<h3>Trả lời đúng kiểu câu hỏi</h3>
+<table class="tbl">
+  <tr><th>Câu hỏi</th><th>Bắt đầu câu trả lời</th></tr>
+  <tr><td><b>Why</b>… / the reason why…</td><td><b>Because</b> + lý do</td></tr>
+  <tr><td>What should … <b>avoid doing</b>?</td><td>They should avoid + <b>V-ing</b></td></tr>
+  <tr><td><b>How</b> can … help us?</td><td>They help (us) + động từ…</td></tr>
+  <tr><td>What <b>THREE</b> things…?</td><td>ý 1, ý 2, <b>and</b> ý 3</td></tr>
+  <tr><td>What is the <b>purpose</b> of…?</td><td>They serve as… / They are used to…</td></tr>
+  <tr><td><b>Which year</b>…?</td><td>… in + năm</td></tr>
+</table>
+
+<h3>Ví dụ</h3>
+<div class="ex">
+  <div class="ex-cue">Đề thi 2023: <i>it has introduced a lot of new projects in recent years <b>and so</b> its record is really improving quickly</i></div>
+  <div class="ex-ans">Lý do nằm <b>trước chữ so</b> → <mark>Because it has introduced a lot of new projects in recent years.</mark></div>
+</div>
+<div class="ex">
+  <div class="ex-cue">Stemhouse đề 3: <i>Critical thinking… is about moving beyond <b>blind acceptance</b></i></div>
+  <div class="ex-ans"><mark>Critical thinkers should avoid blindly accepting information.</mark></div>
+</div>
+<div class="ex">
+  <div class="ex-cue">Stemhouse đề 4: <i>Wearable devices… will help <b>monitor our health</b>, <b>alerting us to any potential issues</b> before they become serious as well as <b>give useful advice</b>.</i></div>
+  <div class="ex-ans">Có <b>3 ý</b> → <mark>They help monitor our health, alert us to any potential issues before they become serious and give useful advice.</mark></div>
+</div>
+<div class="ex">
+  <div class="ex-cue">Stemhouse đề 5: <i>We can try <b>breathing slowly</b>, <b>thinking of good things</b>, or <b>talking to someone we trust</b>.</i></div>
+  <div class="ex-ans"><mark>Breathing slowly, thinking of good things, and talking to someone we trust.</mark> (12 từ ✔ dưới 15)</div>
+</div>
+<div class="ex">
+  <div class="ex-cue">Stemhouse đề 9: <i>What is the purpose of the unique black spots on a cheetah’s golden fur?</i></div>
+  <div class="ex-ans">Bài: <i>which serve as camouflage in tall grass</i> → <mark>They serve as camouflage in tall grass.</mark></div>
+</div>
+<div class="tip">Đề nói <b>Write one way</b> (Stemhouse đề 10: <i>how does light pollution harm animals?</i>) thì chỉ cần 1 ý, ví dụ: <i>Animals sleep less because they think it is still daytime.</i></div>
+<div class="warn"><b>Cách chấm</b>: diễn đạt khác mà <b>đúng ý</b> vẫn được điểm; mỗi lỗi ngữ pháp / chính tả trừ <b>0,5</b>; thiếu ý chỉ được <b>một phần</b> điểm. Chép cụm từ trong bài là cách giữ điểm tốt nhất.</div>`
+  },
+  {
+    id: 'passage-cloze',
+    title: 'Điền khuyết: chọn và viết từ',
+    icon: '🧩',
+    short: 'However, where, over; viết đúng từ',
+    body: `
+<p>Có <b>3 kiểu</b> điền khuyết trong đề:</p>
+<table class="tbl">
+  <tr><th>Kiểu</th><th>Đề</th><th>Bạn phải làm gì</th></tr>
+  <tr><td>Chọn 1 trong 3 từ rồi <b>viết từ đó</b> vào chỗ trống</td><td>Stemhouse đề 7, 9 (Task 1)</td><td>Viết đúng chính tả</td></tr>
+  <tr><td>Khung từ (word box)</td><td>Stemhouse tuyển tập</td><td>Mỗi từ dùng <b>một lần</b></td></tr>
+  <tr><td>Trắc nghiệm A/B/C</td><td>Đề thi 2025, 2026 (câu 5–8)</td><td>Chọn chữ cái</td></tr>
+</table>
+
+<h3>4 bước</h3>
+<ol class="steps">
+  <li><b>Đọc cả đoạn</b> một lượt để biết đoạn nói về gì.</li>
+  <li>Nhìn <b>từ trước và sau</b> chỗ trống để biết cần <b>loại từ</b> gì (động từ, danh từ, từ nối, giới từ).</li>
+  <li>Tìm <b>manh mối</b> trong câu (<i>because…, in a large lake, in pairs</i>).</li>
+  <li>Thử từng từ, đọc lại cả câu.</li>
+</ol>
+
+<h3>1. Chọn và viết từ (Stemhouse đề 7, 9)</h3>
+<table class="tbl">
+  <tr><th>Câu</th><th>Đáp án</th><th>Vì sao</th></tr>
+  <tr><td>if we want to (1)___ global warming and pollution</td><td><b>reduce</b></td><td>giảm ô nhiễm; <i>reuse, recycle</i> dùng cho đồ vật</td></tr>
+  <tr><td>in isolated places and also in the (2)___</td><td><b>oceans</b></td><td>tua-bin gió đặt ngoài biển</td></tr>
+  <tr><td>colder countries (3)___ there is not enough sunshine</td><td><b>where</b></td><td>sau <b>nơi chốn</b> (countries)</td></tr>
+  <tr><td>All (4)___ the world</td><td><b>over</b></td><td>cụm cố định <i>all over the world</i></td></tr>
+  <tr><td>one must (1)___ effective study habits</td><td><b>develop</b></td><td>phát triển, tạo thói quen</td></tr>
+  <tr><td>distractions… should be (2)___ during studying</td><td><b>avoided</b></td><td>should be + V3: <b>tránh</b> điện thoại, TV</td></tr>
+  <tr><td>Engaging with peers (3)___ participating in group discussions</td><td><b>and</b></td><td>hai việc tốt <b>cùng chiều</b></td></tr>
+  <tr><td>essential (4)___ achieving personal growth</td><td><b>for</b></td><td><i>essential for</i></td></tr>
+</table>
+<div class="warn">Phải <b>viết</b> từ, không khoanh chữ cái. Chép đúng từng chữ cái: sai chính tả là <b>0 điểm</b> (<s>avoidded</s>, <s>ocean</s> thiếu -s).</div>
+
+<h3>2. Khung từ (Stemhouse tuyển tập)</h3>
+<p><i>Jack studies many different (1)___ at school… Jack has seven (2)___ every school day.</i> → <b>subjects</b>, <b>lessons</b>.</p>
+<ul>
+  <li>Mỗi từ trong khung dùng <b>đúng một lần</b>. Điền xong từ nào thì <b>gạch</b> từ đó: <s>subjects</s> <s>lessons</s> Maths…</li>
+  <li>Làm <b>câu dễ trước</b>, câu khó sau — càng về cuối càng ít từ để chọn.</li>
+</ul>
+
+<h3>3. Trắc nghiệm (Đề thi 2025, 2026)</h3>
+<p>Đề thi 2025: <b>worried</b> (<i>because they might not be safe</i>), <b>because</b>, <b>boat</b> (<i>in a large lake</i>), <b>daily</b> (<i>from 10 am to 4 pm</i>).<br>
+Đề thi 2026: <b>feel</b> (<i>feel like an adventure</i>), <b>lab</b> (<i>lab partner</i>), <b>liquid</b> (trộn với bột), <b>However</b>.</p>
+
+<h3>Từ nối hay gặp</h3>
+<table class="tbl">
+  <tr><th>Từ nối</th><th>Nghĩa</th><th>Ví dụ</th></tr>
+  <tr><td><b>However,</b></td><td>tuy nhiên — ý <b>ngược lại</b> câu trước</td><td>Khang let out a loud scream… <b>However</b>, Ms. Thao just smiled. (Đề thi 2026)</td></tr>
+  <tr><td><b>Therefore,</b></td><td>vì vậy — <b>kết quả</b> của câu trước</td><td>It was raining. <b>Therefore</b>, we stayed at home.</td></tr>
+  <tr><td><b>Moreover,</b></td><td>hơn nữa — <b>thêm ý</b> cùng chiều</td><td>The park is big. <b>Moreover</b>, it is free.</td></tr>
+  <tr><td><b>because</b></td><td>bởi vì — <b>lý do</b></td><td>… visitors each year <b>because</b> people love the animals. (Đề thi 2025)</td></tr>
+  <tr><td><b>so</b></td><td>nên — <b>kết quả</b></td><td>… new projects <b>and so</b> its record is improving. (Đề thi 2023)</td></tr>
+  <tr><td><b>although</b></td><td>mặc dù</td><td><b>Although</b> it was cold, we swam.</td></tr>
+  <tr><td><b>and</b></td><td>và — hai ý cùng chiều</td><td>Engaging with peers <b>and</b> participating… (Stemhouse đề 9)</td></tr>
+  <tr><td><b>but</b></td><td>nhưng — hai ý ngược nhau</td><td>Travelling is fun, <b>but</b> lots of things can go wrong. (Stemhouse đề 8)</td></tr>
+</table>
+
+<h3>Từ nối chỉ nơi chốn, thời gian, người</h3>
+<table class="tbl">
+  <tr><th>Từ</th><th>Đứng sau</th><th>Ví dụ</th></tr>
+  <tr><td><b>where</b></td><td><b>nơi chốn</b></td><td>colder countries <b>where</b> there is not enough sunshine</td></tr>
+  <tr><td><b>when</b></td><td><b>thời gian</b></td><td>the moment <b>when</b> the sun rises</td></tr>
+  <tr><td><b>who</b></td><td><b>người</b></td><td>the best rider <b>who</b> climbs fastest</td></tr>
+</table>
+<div class="tip">However, Therefore, Moreover đứng <b>đầu câu</b> và có <b>dấu phẩy</b> theo sau: <i>(8)___, Ms. Thao just smiled</i> — thấy chỗ trống ở đầu câu, trước dấu phẩy → nghĩ ngay tới 3 từ này.</div>`
+  }
+];
 
 // Dùng thử không cần đăng nhập: mỗi mảng Reading mở TRIAL.lessons bài đầu và TRIAL.passages bài đọc đầu tiên
 // (scripts/seed.js chọn các bài này vào exams/trial).

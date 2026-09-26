@@ -30,6 +30,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const grader = require('../public/js/grader');
+const readingGrader = require('../public/js/reading-grader');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -151,6 +152,146 @@ function buildReadingDocs(passages, lessons, trial, orderFrom) {
   return { passageDocs, questionDocs, answerDocs, examDocs, trialQuestionIds, trialPassageIds, errors };
 }
 
+/*
+ * Reading › Read a passage: bài đọc dài kiểu đề thật 2023–2026 và Stemhouse (scripts/source/passages/*.js,
+ * window.READING_PASSAGE_BANK). Một đề (exam) có thể gồm nhiều bài đọc (vd. thư câu 1–4 + đoạn văn câu 5–8).
+ *
+ *   { id: 'rp-…', exam?: 'rp-…' (mặc định = id), src: { kind: 'exam', year } | { kind: 'sh', test } | { kind: 'shb', n },
+ *     title, genre: 'letter' | 'email' | 'article' | 'story', intro, paragraphs: [...] ("# Tiêu đề" = tiêu đề nhỏ),
+ *     box?: [từ trong khung], questions: [...] }
+ *   Câu hỏi: { num, type, prompt?, topics, evidence, vi, en } và
+ *     tf   answer: 'True' | 'False'
+ *     mc   options (3–4), answer: 'A'…'D'; không có prompt = chỗ trống "(num)________" trong bài
+ *     word answers: [các cách viết được chấp nhận], maxWords
+ *     gap  answers, options? (3 lựa chọn); không có prompt = chỗ trống trong bài
+ *     open answer (câu mẫu), ideas: [{ any: [...], vi, en }], need?, maxWords?
+ */
+const PASSAGE_TYPES = ['tf', 'mc', 'word', 'gap', 'open'];
+const SOURCE_GROUPS = { exam: 1, sh: 2, shb: 3 };
+const LETTERS = ['A', 'B', 'C', 'D'];
+
+function sourceTitle(src) {
+  if (src.kind === 'exam') return { vi: `Đề thi ${src.year}`, en: `Exam ${src.year}` };
+  if (src.kind === 'sh') return { vi: `Stemhouse — Đề ${src.test}`, en: `Stemhouse — Test ${src.test}` };
+  return { vi: `Stemhouse — Tuyển tập, bài ${src.n}`, en: `Stemhouse — Collection, passage ${src.n}` };
+}
+
+function buildPassageDocs(bank, lessons, trial, orderFrom) {
+  const errors = [];
+  const passageDocs = [], questionDocs = [], answerDocs = [], examDocs = [];
+  const trialQuestionIds = [], trialPassageIds = [];
+  const topicIds = new Set((lessons || []).map(l => l.id));
+  const ids = new Set();
+  const exams = new Map();
+  let order = orderFrom;
+
+  bank.forEach(p => {
+    if (!/^rp-[a-z0-9-]+$/.test(p.id || '')) errors.push(`${p.id}: passage id must look like rp-…`);
+    if (ids.has(p.id)) errors.push(`Duplicate passage ${p.id}`);
+    ids.add(p.id);
+    const src = p.src || {};
+    if (!SOURCE_GROUPS[src.kind]) errors.push(`${p.id}: src.kind must be exam, sh or shb`);
+    const paras = p.paragraphs || [];
+    const text = paras.join('\n');
+    if (!text.trim()) errors.push(`${p.id}: empty passage`);
+    if (!p.title) errors.push(`${p.id}: missing title`);
+    if (!(p.questions || []).length) errors.push(`${p.id}: no questions`);
+
+    const questionIds = [];
+    const nums = new Set();
+    (p.questions || []).forEach(q => {
+      const id = `${p.id}-${q.num}`;
+      if (nums.has(q.num)) errors.push(`${id}: duplicate question number`);
+      nums.add(q.num);
+      questionIds.push(id);
+      if (!PASSAGE_TYPES.includes(q.type)) { errors.push(`${id}: unknown type ${q.type}`); return; }
+      const blankInText = text.includes(`(${q.num})________`);
+      if (['tf', 'word', 'open'].includes(q.type) && !q.prompt) errors.push(`${id}: missing prompt`);
+      if (['mc', 'gap'].includes(q.type) && !q.prompt && !blankInText) errors.push(`${id}: no prompt and blank (${q.num}) not in passage`);
+      if (q.type === 'tf' && !['True', 'False'].includes(q.answer)) errors.push(`${id}: answer must be True/False`);
+      if (q.type === 'mc') {
+        if (!Array.isArray(q.options) || q.options.length < 3 || q.options.length > 4) errors.push(`${id}: needs 3–4 options`);
+        else if (!LETTERS.slice(0, q.options.length).includes(q.answer)) errors.push(`${id}: answer ${q.answer} is not a valid letter`);
+      }
+      if (['word', 'gap'].includes(q.type)) {
+        if (!Array.isArray(q.answers) || !q.answers.length) errors.push(`${id}: needs answers`);
+        else {
+          const g = readingGrader.grade({ kind: q.type, answers: q.answers, maxWords: q.maxWords }, q.answers[0]);
+          if (!g.correct) errors.push(`${id}: first answer is rejected by its own key`);
+          if (q.type === 'word' && !q.answers.some(a => text.toLowerCase().includes(a.toLowerCase()))) errors.push(`${id}: answer not found in passage`);
+          if (q.options && !q.options.some(o => readingGrader.grade({ kind: 'gap', answers: q.answers }, o).correct)) errors.push(`${id}: answer is not one of the options`);
+        }
+      }
+      if (q.type === 'open') {
+        if (!q.answer) errors.push(`${id}: open question needs a sample answer`);
+        if (!Array.isArray(q.ideas) || !q.ideas.length) errors.push(`${id}: open question needs ideas`);
+        else {
+          const key = { kind: 'open', answer: q.answer, ideas: q.ideas, need: q.need, maxWords: q.maxWords };
+          if (!readingGrader.grade(key, q.answer).correct) errors.push(`${id}: sample answer fails its own ideas`);
+          q.ideas.forEach((idea, i) => { if (!idea.vi || !idea.en || !(idea.any || []).length) errors.push(`${id}: idea ${i + 1} needs any, vi, en`); });
+        }
+      }
+      if (!q.topics || !q.topics.length) errors.push(`${id}: no topics`);
+      (q.topics || []).forEach(t => { if (!topicIds.has(t)) errors.push(`${id}: unknown topic ${t}`); });
+      (q.evidence || []).forEach(e => { if (!paras.some(par => par.includes(e))) errors.push(`${id}: evidence not in passage: ${e}`); });
+      if (!(q.vi || []).length || (q.vi || []).length !== (q.en || []).length) errors.push(`${id}: vi/en explanations missing or differ in length`);
+
+      const data = {
+        type: 'reading_' + q.type, part: 'passage', passage: p.id, num: q.num,
+        topics: q.topics || [], source: [src], order: order++
+      };
+      ['prompt', 'options', 'maxWords', 'authored'].forEach(k => { if (q[k] !== undefined) data[k] = q[k]; });
+      if (q.type === 'open') data.ideaCount = q.ideas.length;
+      questionDocs.push({ id, data });
+      const explanation = { vi: q.vi || [], en: q.en || [] };
+      const evidence = q.evidence || [];
+      let key;
+      if (q.type === 'tf' || q.type === 'mc') key = { choice: true, answer: q.answer };
+      else if (q.type === 'open') {
+        key = { kind: 'open', answer: q.answer, ideas: q.ideas.map(i => ({ any: i.any, vi: i.vi, en: i.en })) };
+        if (q.need) key.need = q.need;
+        if (q.maxWords) key.maxWords = q.maxWords;
+      } else {
+        key = { kind: q.type, answer: q.answers[0], answers: q.answers };
+        if (q.maxWords) key.maxWords = q.maxWords;
+      }
+      answerDocs.push({ id, data: Object.assign(key, { evidence, explanation }) });
+    });
+
+    const passage = {
+      part: 'passage', title: p.title, genre: p.genre || 'article', intro: p.intro || '', paragraphs: paras,
+      source: src, questionIds, order: passageDocs.length
+    };
+    if (p.box) passage.box = p.box;
+    passageDocs.push({ id: p.id, data: passage });
+    const examId = p.exam || p.id;
+    if (!exams.has(examId)) exams.set(examId, { src, questionIds: [], passageIds: [] });
+    exams.get(examId).questionIds.push(...questionIds);
+    exams.get(examId).passageIds.push(p.id);
+  });
+
+  [...exams.entries()].forEach(([id, e], i) => {
+    examDocs.push({
+      id,
+      data: {
+        kind: 'test', part: 'passage', group: e.src.kind, passageIds: e.passageIds, questionIds: e.questionIds,
+        title: sourceTitle(e.src), order: 4000 + SOURCE_GROUPS[e.src.kind] * 100 + i
+      }
+    });
+  });
+  if (passageDocs.length) {
+    examDocs.push({ id: 'rp-all', data: { kind: 'all', part: 'passage', questionIds: questionDocs.map(q => q.id), title: { vi: 'Tất cả các bài', en: 'All passages' }, order: 3 } });
+  }
+  (lessons || []).forEach((l, i) => {
+    const questionIds = questionDocs.filter(q => q.data.topics.includes(l.id)).map(q => q.id);
+    if (!questionIds.length) return;
+    examDocs.push({ id: `topic-${l.id}`, data: { kind: 'topic', part: 'passage', topic: l.id, questionIds, title: { vi: l.title }, order: 1800 + i } });
+  });
+  passageDocs.slice(0, trial.passages || 0).forEach(d => { trialPassageIds.push(d.id); trialQuestionIds.push(...d.data.questionIds); });
+
+  return { passageDocs, questionDocs, answerDocs, examDocs, trialQuestionIds, trialPassageIds, errors };
+}
+
 function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, reading = null) {
   const lessonTitles = Object.fromEntries(lessons.map(l => [l.id, l.title]));
   const errors = [];
@@ -237,16 +378,19 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, rea
   const passageDocs = [];
   const trialPassageIds = [];
   if (reading) {
-    const r = buildReadingDocs(reading.passages, reading.lessons, trial, questions.length);
-    r.questionDocs.forEach(d => { if (ids.has(d.id)) errors.push(`Duplicate id ${d.id}`); ids.add(d.id); });
-    r.examDocs.forEach(d => { if (examDocs.some(e => e.id === d.id)) errors.push(`Duplicate exam ${d.id}`); });
-    questionDocs.push(...r.questionDocs);
-    answerDocs.push(...r.answerDocs);
-    examDocs.push(...r.examDocs);
-    passageDocs.push(...r.passageDocs);
-    trialIds.push(...r.trialQuestionIds);
-    trialPassageIds.push(...r.trialPassageIds);
-    errors.push(...r.errors);
+    const parts = [buildReadingDocs(reading.passages || [], reading.lessons, trial, questions.length)];
+    if ((reading.bank || []).length) parts.push(buildPassageDocs(reading.bank, reading.lessons.passage, trial, questions.length + 10000));
+    parts.forEach(r => {
+      r.questionDocs.forEach(d => { if (ids.has(d.id)) errors.push(`Duplicate id ${d.id}`); ids.add(d.id); });
+      r.examDocs.forEach(d => { if (examDocs.some(e => e.id === d.id)) errors.push(`Duplicate exam ${d.id}`); });
+      questionDocs.push(...r.questionDocs);
+      answerDocs.push(...r.answerDocs);
+      examDocs.push(...r.examDocs);
+      passageDocs.push(...r.passageDocs);
+      trialIds.push(...r.trialQuestionIds);
+      trialPassageIds.push(...r.trialPassageIds);
+      errors.push(...r.errors);
+    });
   }
   examDocs.push({
     id: 'trial',
@@ -269,13 +413,16 @@ async function write(db, collection, docs) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const hasReading = fs.existsSync(args.reading);
+  const bankDir = path.join(__dirname, 'source', 'passages');
+  const bankFiles = fs.existsSync(bankDir) ? fs.readdirSync(bankDir).filter(f => f.endsWith('.js')).sort().map(f => path.join(bankDir, f)) : [];
   const win = loadBrowserGlobals([args.source, path.join(ROOT, 'public', 'js', 'lessons.js'), path.join(ROOT, 'public', 'js', 'lessons-reading.js')]
-    .concat(hasReading ? [args.reading] : []));
+    .concat(hasReading ? [args.reading] : [], bankFiles));
   const questions = win.WRITING_QUESTIONS;
   const lessons = win.LESSONS;
   if (!Array.isArray(questions) || !questions.length) throw new Error('WRITING_QUESTIONS not found in ' + args.source);
   if (!hasReading) console.warn(`No reading bank at ${path.relative(ROOT, args.reading)} — seeding Writing only.`);
-  const reading = hasReading ? { passages: win.READING_PASSAGES, lessons: win.READING_LESSONS } : null;
+  const bank = win.READING_PASSAGE_BANK || [];
+  const reading = hasReading || bank.length ? { passages: win.READING_PASSAGES || [], bank, lessons: win.READING_LESSONS } : null;
 
   const { questionDocs, answerDocs, examDocs, passageDocs, errors } = buildDocs(questions, lessons, win.TRIAL, reading);
   console.log(`Loaded ${questions.length} writing questions from ${path.relative(ROOT, args.source)}`);
@@ -307,4 +454,4 @@ if (require.main === module) {
   main().catch(err => { console.error(err.message || err); process.exit(1); });
 }
 
-module.exports = { buildDocs, buildReadingDocs, loadBrowserGlobals, EXAM_ORDER };
+module.exports = { buildDocs, buildReadingDocs, buildPassageDocs, loadBrowserGlobals, EXAM_ORDER };
