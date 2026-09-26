@@ -165,6 +165,8 @@ function buildReadingDocs(passages, lessons, trial, orderFrom) {
  *     word answers: [các cách viết được chấp nhận], maxWords
  *     gap  answers, options? (3 lựa chọn); không có prompt = chỗ trống trong bài
  *     open answer (câu mẫu), ideas: [{ any: [...], vi, en }], need?, maxWords?
+ *   alsoIn?: { part: 'letter' | 'text', topics: { [số câu]: [chủ điểm của phần đó] } } — đề thật cùng dạng sách 8020
+ *     (2025–2026): chép thêm bài này vào Read a letter / Read a text (id rl-e2025 / rt-e2025, câu hỏi riêng).
  */
 const PASSAGE_TYPES = ['tf', 'mc', 'word', 'gap', 'open'];
 const SOURCE_GROUPS = { exam: 1, sh: 2, shb: 3 };
@@ -177,7 +179,7 @@ function sourceTitle(src) {
   return { vi: 'Stemhouse — Tuyển tập', en: 'Stemhouse — Collection' };
 }
 
-function buildPassageDocs(bank, lessons, trial, orderFrom) {
+function buildPassageDocs(bank, lessons, trial, orderFrom, bookLessons = {}) {
   const errors = [];
   const passageDocs = [], questionDocs = [], answerDocs = [], examDocs = [];
   const trialQuestionIds = [], trialPassageIds = [];
@@ -265,30 +267,55 @@ function buildPassageDocs(bank, lessons, trial, orderFrom) {
     };
     if (p.box) passage.box = p.box;
     passageDocs.push({ id: p.id, data: passage });
+    if (p.alsoIn) addToBookPart(p, passage);
     const examId = p.exam || p.id;
     if (!exams.has(examId)) exams.set(examId, { src, questionIds: [], passageIds: [] });
     exams.get(examId).questionIds.push(...questionIds);
     exams.get(examId).passageIds.push(p.id);
   });
 
+  // Bản chép sang Read a letter / Read a text: câu hỏi và đáp án riêng (qstats riêng), mỗi bài một đề.
+  function addToBookPart(p, passage) {
+    const part = p.alsoIn.part;
+    const prefix = READING_PARTS[part];
+    if (!prefix) { errors.push(`${p.id}: alsoIn.part must be letter or text`); return; }
+    const id = `${prefix}-e${p.src.year}`;
+    const topicsOk = new Set((bookLessons[part] || []).map(l => l.id));
+    const questionIds = [];
+    p.questions.forEach(q => {
+      const qid = `${id}-${q.num}`;
+      const topics = (p.alsoIn.topics || {})[q.num] || [];
+      if (!['tf', 'mc'].includes(q.type)) errors.push(`${qid}: only True/False and A/B/C questions fit the ${part} part`);
+      if (!topics.length) errors.push(`${qid}: alsoIn needs topics`);
+      topics.forEach(t => { if (!topicsOk.has(t)) errors.push(`${qid}: unknown ${part} topic ${t}`); });
+      const src = questionDocs.find(d => d.id === `${p.id}-${q.num}`);
+      const key = answerDocs.find(d => d.id === `${p.id}-${q.num}`);
+      questionDocs.push({ id: qid, data: Object.assign({}, src.data, { part, passage: id, topics, order: order++ }) });
+      answerDocs.push({ id: qid, data: key.data });
+      questionIds.push(qid);
+    });
+    passageDocs.push({ id, data: Object.assign({}, passage, { part, questionIds, order: 1000 + passageDocs.length }) });
+    examDocs.push({ id, data: { kind: 'test', part, group: 'exam', passageId: id, questionIds, title: sourceTitle(p.src), order: 3900 + p.src.year - 2000 } });
+  }
+
   [...exams.entries()].forEach(([id, e], i) => {
     examDocs.push({
       id,
       data: {
-        kind: 'test', part: 'passage', group: e.src.kind, passageIds: e.passageIds, questionIds: e.questionIds,
+        kind: 'test', part: 'passage', group: e.src.kind, src: e.src, passageIds: e.passageIds, questionIds: e.questionIds,
         title: sourceTitle(e.src), order: 4000 + SOURCE_GROUPS[e.src.kind] * 100 + (e.src.kind === 'exam' ? e.src.year - 2000 : i)
       }
     });
   });
   if (passageDocs.length) {
-    examDocs.push({ id: 'rp-all', data: { kind: 'all', part: 'passage', questionIds: questionDocs.map(q => q.id), title: { vi: 'Tất cả các bài', en: 'All passages' }, order: 3 } });
+    examDocs.push({ id: 'rp-all', data: { kind: 'all', part: 'passage', questionIds: questionDocs.filter(q => q.data.part === 'passage').map(q => q.id), title: { vi: 'Tất cả các bài', en: 'All passages' }, order: 3 } });
   }
   (lessons || []).forEach((l, i) => {
-    const questionIds = questionDocs.filter(q => q.data.topics.includes(l.id)).map(q => q.id);
+    const questionIds = questionDocs.filter(q => q.data.part === 'passage' && q.data.topics.includes(l.id)).map(q => q.id);
     if (!questionIds.length) return;
     examDocs.push({ id: `topic-${l.id}`, data: { kind: 'topic', part: 'passage', topic: l.id, questionIds, title: { vi: l.title }, order: 1800 + i } });
   });
-  passageDocs.slice(0, trial.passages || 0).forEach(d => { trialPassageIds.push(d.id); trialQuestionIds.push(...d.data.questionIds); });
+  passageDocs.filter(d => d.data.part === 'passage').slice(0, trial.passages || 0).forEach(d => { trialPassageIds.push(d.id); trialQuestionIds.push(...d.data.questionIds); });
 
   return { passageDocs, questionDocs, answerDocs, examDocs, trialQuestionIds, trialPassageIds, errors };
 }
@@ -400,7 +427,7 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, rea
   const trialPassageIds = [];
   if (reading) {
     const parts = [buildReadingDocs(reading.passages || [], reading.lessons, trial, questions.length)];
-    if ((reading.bank || []).length) parts.push(buildPassageDocs(reading.bank, reading.lessons.passage, trial, questions.length + 10000));
+    if ((reading.bank || []).length) parts.push(buildPassageDocs(reading.bank, reading.lessons.passage, trial, questions.length + 10000, reading.lessons));
     parts.forEach(r => {
       r.questionDocs.forEach(d => { if (ids.has(d.id)) errors.push(`Duplicate id ${d.id}`); ids.add(d.id); });
       r.examDocs.forEach(d => { if (examDocs.some(e => e.id === d.id)) errors.push(`Duplicate exam ${d.id}`); });
@@ -412,7 +439,17 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, rea
       trialPassageIds.push(...r.trialPassageIds);
       errors.push(...r.errors);
     });
+    // Đề thật chép sang Read a letter / Read a text: thêm vào "tất cả" và đề theo chủ điểm của phần đó.
+    questionDocs.filter(d => /^r[lt]-e\d{4}-/.test(d.id)).forEach(d => {
+      const all = examDocs.find(e => e.id === `${READING_PARTS[d.data.part]}-all`);
+      if (all) all.data.questionIds.push(d.id);
+      d.data.topics.forEach(tp => {
+        const ex = examDocs.find(e => e.id === `topic-${tp}`);
+        if (ex) ex.data.questionIds.push(d.id);
+      });
+    });
   }
+  examDocs.push(...buildMockDocs(questions, examDocs));
   examDocs.push({
     id: 'trial',
     data: { kind: 'trial', questionIds: trialIds, passageIds: trialPassageIds, title: { vi: 'Làm thử', en: 'Free trial' }, order: 2000 }
@@ -437,6 +474,68 @@ function addWritingSources(questions, extra) {
     if (!q) throw new Error(`WRITING_EXTRA_SRC: unknown question ${id}`);
     q.src = q.src.filter(s => s !== 'gen').concat(srcs);
   });
+}
+
+/*
+ * Thi thử (Mock Test): mỗi đề thật (2022–2026) và mỗi đề Stemhouse thành một đề đủ 3 phần —
+ * Listening (chưa có file nghe, chỉ ghi số câu), Reading (các bài Read a passage của đề đó),
+ * Writing (các câu có nguồn là đề đó, trừ câu ví dụ `example: true`).
+ * 'mock-random': đề ghép ngẫu nhiên ở trình duyệt (1 thư + 1 đoạn văn + 2 câu Writing của sách 8020).
+ * Điểm theo đúng bảng điểm trong đáp án của từng đề (MOCK_POINTS): mỗi câu Reading / Writing một mức điểm,
+ * cộng các phần app chưa có (Listening, câu sắp xếp từ của Stemhouse) — tổng điểm đề vì vậy khác nhau (20, 22, 30…).
+ */
+const MOCK_POINTS = {
+  'exam-2022': { listening: 8, reading: [2, 2, 2, 2, 3, 3], writing: [4, 4] },
+  'exam-2023': { listening: 8, reading: [2, 2, 2, 2, 3, 3], writing: [4, 4] },
+  'exam-2024': { listening: 10, reading: [1, 1, 2, 2, 2, 2], writing: [5, 5] },
+  'exam-2025': { listening: 8, reading: [1, 1, 1, 1, 1, 1, 1, 1], writing: [2, 2] },
+  'exam-2026': { listening: 6, reading: [1, 1, 1, 1, 1, 1, 1, 1], writing: [3, 3] },
+  // Stemhouse: Listening 8; Reading 2 điểm/câu (đề 8: 3,3,3,3,2,2); Writing đề 1, 3: 2 câu × 3 điểm,
+  // các đề còn lại: Task 1 sắp xếp từ 2 điểm (app chưa có) + Task 2: 2 câu × 2 điểm.
+  sh: test => ({
+    listening: 8,
+    reading: test === 8 ? [3, 3, 3, 3, 2, 2] : null, readingEach: 2,
+    writing: [1, 3].includes(test) ? [3, 3] : [2, 2],
+    rearrange: [1, 3].includes(test) ? 0 : 2
+  })
+};
+
+function mockPoints(src, readingIds, writingIds) {
+  const scheme = src.kind === 'exam' ? MOCK_POINTS[`exam-${src.year}`] : MOCK_POINTS.sh(src.test);
+  if (!scheme) throw new Error(`No point scheme for ${JSON.stringify(src)}`);
+  const perQ = (ids, list, each) => Object.fromEntries(ids.map((id, i) => [id, list ? list[i] : each]));
+  const reading = perQ(readingIds, scheme.reading, scheme.readingEach);
+  const writing = perQ(writingIds, scheme.writing, null);
+  const missing = [{ part: 'listening', pts: scheme.listening }].concat(scheme.rearrange ? [{ part: 'rearrange', pts: scheme.rearrange }] : []);
+  if (Object.values(reading).concat(Object.values(writing)).some(v => typeof v !== 'number')) {
+    throw new Error(`Point scheme of ${JSON.stringify(src)} does not fit its questions`);
+  }
+  const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
+  return { reading, writing, missing, total: sum(reading) + sum(writing) + missing.reduce((a, m) => a + m.pts, 0) };
+}
+function buildMockDocs(questions, examDocs) {
+  const docs = [];
+  examDocs.filter(e => e.data.part === 'passage' && e.data.kind === 'test' && ['exam', 'sh'].includes(e.data.group)).forEach(e => {
+    const src = e.data.src;
+    const same = s => s && typeof s === 'object' && !Array.isArray(s) && s.kind === src.kind && (src.kind === 'exam' ? s.year === src.year : s.test === src.test);
+    const writingIds = questions.filter(q => !q.example && q.src.some(same)).map(q => q.id);
+    const id = src.kind === 'exam' ? `mock-e${src.year}` : `mock-sh${pad(src.test)}`;
+    docs.push({
+      id,
+      data: {
+        kind: 'mock', group: src.kind, src, title: sourceTitle(src), listening: 4,
+        passageIds: e.data.passageIds, readingIds: e.data.questionIds, writingIds,
+        points: mockPoints(src, e.data.questionIds, writingIds),
+        questionIds: e.data.questionIds.concat(writingIds),
+        order: 6000 + SOURCE_GROUPS[src.kind] * 100 + (src.kind === 'exam' ? src.year - 2000 : src.test)
+      }
+    });
+  });
+  docs.push({
+    id: 'mock-random',
+    data: { kind: 'mock', group: 'random', title: { vi: 'Đề ngẫu nhiên từ sách 8020', en: 'Random test from the 8020 books' }, listening: 4, passageIds: [], readingIds: [], writingIds: [], questionIds: [], order: 6900 }
+  });
+  return docs;
 }
 
 async function write(db, collection, docs) {

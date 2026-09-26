@@ -17,7 +17,7 @@ const READING_LESSONS = window.READING_LESSONS;
 const TRIAL = window.TRIAL;
 const { STREAK_BONUS_EVERY, STREAK_BONUS_STARS } = window.Scoring;
 const MAX_WORDS = 15;
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.3.0';
 // Số câu làm thử: TRIAL.questions câu Writing + TRIAL.passages bài đọc đầu tiên của mỗi phần Reading
 // (thư 4 câu, đoạn văn 4 câu, bài đọc dài: đề thật 2023 có 6 câu).
 const TRIAL_QUESTIONS = TRIAL.questions + (TRIAL.passages || 0) * (4 + 4 + 6);
@@ -58,7 +58,8 @@ function localDefaults() {
   // sessions: lượt đang làm của từng mảng { writing, letter, text }
   // daily: bộ câu "Luyện mỗi ngày" đã giao hôm nay theo mảng { [mảng]: { uid, date, ids } }
   // pool: nguồn câu Writing khi luyện — 'book' (trong sách) | 'gen' (tạo bởi AI) | 'all'
-  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10, pool: 'all', sound: true, music: true }, sessions: {}, guestProfile: null, daily: {} };
+  // mock: lượt thi thử đang làm · mockResults: kết quả các lần thi thử trên máy này
+  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10, pool: 'all', sound: true, music: true }, sessions: {}, guestProfile: null, daily: {}, mock: null, mockResults: [] };
 }
 
 let storageOk = true;
@@ -75,7 +76,9 @@ function loadLocal() {
       settings: Object.assign(localDefaults().settings, data.settings),
       sessions,
       guestProfile: data.guestProfile || null,
-      daily
+      daily,
+      mock: data.mock || null,
+      mockResults: Array.isArray(data.mockResults) ? data.mockResults : []
     };
   } catch (e) {
     storageOk = false;
@@ -180,7 +183,7 @@ function sessionLabel(s) {
   const k = s.kind || {};
   const from = k.pool && k.pool !== 'all' ? ` · ${t('pool_' + k.pool)}` : '';
   if (k.mode === 'topic') return t('label_topic', { t: topicTitle(k.value) }) + from;
-  if (k.mode === 'exam' && (s.mod === 'passage' || k.value.startsWith('w-'))) {
+  if (k.mode === 'exam' && (s.mod === 'passage' || /^(w|rl|rt)-/.test(k.value))) {
     const e = EXAMS[k.value];
     return e ? (e.title[lang()] || e.title.vi) : k.value;
   }
@@ -209,6 +212,7 @@ function renderHeader() {
       <a href="#/"${active('#/')}><span class="nav-ic">🏠</span>${t('nav_home')}</a>
       <a href="#/reading"${active('#/reading')}><span class="nav-ic">📖</span>${t('nav_reading')}</a>
       <a href="#/writing"${active('#/writing')}><span class="nav-ic">✏️</span>${t('nav_writing')}</a>
+      <a href="#/mock"${active('#/mock')}><span class="nav-ic">📝</span>${t('nav_mock')}</a>
       ${guest ? '' : `<a href="#/results"${active('#/results')}><span class="nav-ic">🏆</span>${t('nav_results')}</a>`}
     </nav>` : '<span class="nav"></span>'}
     <button type="button" class="sound-btn music-btn ${local.settings.music ? '' : 'off'}" id="music-btn" title="${t(local.settings.music ? 'music_off' : 'music_on')}" aria-label="${t(local.settings.music ? 'music_off' : 'music_on')}" aria-pressed="${!!local.settings.music}">🎵</button>
@@ -261,6 +265,7 @@ function setKeys(fn) {
 // keepScroll: giữ vị trí cuộn (sang câu tiếp theo của cùng một bài đọc).
 function page(html, keepScroll) {
   setKeys(null);
+  if (mockTimer) { clearInterval(mockTimer); mockTimer = null; }
   $('#app').innerHTML = html + (storageOk ? '' : `<p class="storage-warn">${t('storage_warn')}</p>`);
   if (!keepScroll) window.scrollTo(0, 0);
 }
@@ -331,7 +336,12 @@ function viewHome() {
         <h2>Writing</h2><p>${t('writing_desc')}</p>
         <span class="badge go">${guest ? t('writing_badge_guest', { q: modQuestions('writing').length, l: TRIAL.lessons }) : t('writing_badge', { q: modQuestions('writing').length, l: LESSONS.length })}</span>
       </a>
-    </section>`);
+    </section>
+    <a class="mock-banner" href="#/mock">
+      <span class="mock-banner-icon" aria-hidden="true">📝</span>
+      <span class="mock-banner-body"><b>${t('mock_title')}</b><span>${t('mock_banner_desc', { m: MOCK_MINUTES })}</span></span>
+      <span class="badge go">${t('mock_banner_go')}</span>
+    </a>`);
 }
 
 /* ---------- Reading: chọn mảng ---------- */
@@ -593,9 +603,12 @@ function viewPracticeSetup(m) {
 
   // Read a passage và Writing: đề thật, Stemhouse 10 đề, Stemhouse tuyển tập — value là id đề.
   const passageExams = group => Object.values(EXAMS).filter(e => e.kind === 'test' && e.group === group
-    && (m === 'passage' ? e.part === 'passage' : !e.part)).sort((a, b) => a.order - b.order);
+    && (m === 'writing' ? !e.part : e.part === m)).sort((a, b) => a.order - b.order);
   const extraGroups = () => ['exam', 'sh', 'shb'].filter(g => passageExams(g).length).map(g => `<optgroup label="${t('exam_group_' + g)}">${
-    passageExams(g).map(e => `<option value="${e.id}">${esc(e.title[lang()] || e.title.vi)}</option>`).join('')
+    passageExams(g).map(e => {
+      const p = e.passageId && PASSAGES[e.passageId];
+      return `<option value="${e.id}">${esc((e.title[lang()] || e.title.vi) + (p ? ` · ${p.title}` : ''))}</option>`;
+    }).join('')
   }</optgroup>`).join('');
   const examOptions = m === 'passage' ? ['exam', 'sh', 'shb'].filter(g => passageExams(g).length).map(g => `<optgroup label="${t('exam_group_' + g)}">${
     passageExams(g).map(e => {
@@ -608,7 +621,7 @@ function viewPracticeSetup(m) {
         const p = PASSAGES[MODS[m].examPrefix + examKey(b, d)];
         return `<option value="${b}-${d}">${esc(t('exam', { b, d }) + (reading && p ? ` · ${p.title}` : ''))}</option>`;
       }).join('')
-  }</optgroup>`).join('') + (m === 'writing' ? extraGroups() : '');
+  }</optgroup>`).join('') + extraGroups();
   const allCard = reading ? `
       <div class="setup-card">
         <h3>${t('setup_all_' + m)}</h3>
@@ -691,7 +704,7 @@ function startSession(m, mode, value, poolOverride) {
   const p = poolOverride || (!guest && ['all', 'topic', 'daily'].includes(mode || 'all') ? modPool(m) : 'all');
   if (mode === 'topic') { examId = 'topic-' + value; ids = (EXAMS[examId] || {}).questionIds || questionsForTopic(value).map(q => q.id); }
   else if (mode === 'exam') {
-    examId = m === 'passage' || value.startsWith('w-') ? value : mod.examPrefix + examKey(...value.split('-'));
+    examId = m === 'passage' || /^(w|rl|rt)-/.test(value) ? value : mod.examPrefix + examKey(...value.split('-'));
     ids = (EXAMS[examId] || {}).questionIds || [];
   }
   else if (mode === 'wrong') { examId = mod.allExam; ids = wrongIds(m); }
@@ -888,7 +901,7 @@ function passageHtml(p, q, s, pending) {
     gaps[rq.num] = { word: show(r.answer), wrong: r.correct ? null : show(r.picked), cls: r.correct ? 'ok' : 'bad' };
   });
   if (!pending && q.passage === p.id && inPassageBlank(q)) gaps[q.num] = { cls: 'current' };
-  const paras = p.part === 'text' ? [p.text] : p.paragraphs;
+  const paras = p.paragraphs || [p.text];   // đề thật chép sang Read a text có nhiều đoạn (có khi là thư)
   const framed = p.part === 'letter' || p.genre === 'letter' || p.genre === 'email';
   const label = p.part === 'passage' ? t(framed ? 'passage_letter' : 'passage_passage') : t('passage_' + p.part);
   const last = paras.length - 1;
@@ -1408,6 +1421,356 @@ function go(hash) {
 }
 
 // Trang con của một mảng: '' | learn[/id] | practice[/run]
+/* ---------- Thi thử (Mock Test) ---------- */
+// Đề đủ 3 phần như thi thật, làm trong 45 phút (nộp sớm được), nộp bài mới chấm.
+// Điểm theo đúng bảng điểm trong đáp án của từng đề (exams/mock-*.points, seed.js): mỗi câu một mức điểm,
+// tổng điểm đề khác nhau theo năm (20, 30…) nên kết quả ghi kèm phần trăm. Listening (chưa có file nghe)
+// và câu sắp xếp từ của Stemhouse vẫn tính vào tổng điểm đề nhưng chưa làm được trên app.
+// Lượt đang làm: local.mock · kết quả các lần thi (trên máy này): local.mockResults.
+
+const MOCK_MINUTES = 45;
+// Đề ngẫu nhiên từ sách 8020 chấm theo bảng điểm đề thật 2025 (cùng dạng thư + đoạn văn): tổng 20.
+const RANDOM_POINTS = { readingEach: 1, writingEach: 2, listening: 8 };
+let mockTimer = null;
+
+const mockExams = group => Object.values(EXAMS).filter(e => e.kind === 'mock' && e.group === group).sort((a, b) => a.order - b.order);
+const mockRun = () => (local.mock && local.mock.uid === sessionOwner() ? local.mock : null);
+const mockHistory = () => (local.mockResults || []).filter(a => a.uid === sessionOwner()).sort((a, b) => b.at - a.at);
+const titleText = x => (x && typeof x === 'object' ? x[lang()] || x.vi : x || '');
+const fmtScore = x => (Math.round(x * 100) / 100).toLocaleString(t('date_locale'));
+const pctOf = (x, total) => (total ? Math.round(x * 100 / total) : 0);
+const scoreLine = a => t('mock_score_line', { s: fmtScore(a.earned), t: fmtScore(a.total), p: pctOf(a.earned, a.total) });
+const sumPts = o => Object.values(o || {}).reduce((x, y) => x + y, 0);
+const missingPts = (points, part) => ((points.missing || []).find(m => m.part === part) || {}).pts || 0;
+const clock = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${pad2(s % 60)}`; };
+
+// Đề ngẫu nhiên: 1 bức thư + 1 đoạn văn + 2 câu Writing của sách 8020.
+function randomMockParts() {
+  const any = arr => arr[Math.floor(Math.random() * arr.length)];
+  const letter = any(modPassages('letter').filter(p => /^rl-b/.test(p.id)));
+  const text = any(modPassages('text').filter(p => /^rt-b/.test(p.id)));
+  const writing = shuffle(modQuestions('writing').filter(q => q.source.some(s => typeof s.book === 'number'))).slice(0, 2);
+  const readingIds = passageQuestionIds(letter.id).concat(passageQuestionIds(text.id));
+  const writingIds = writing.map(q => q.id);
+  const reading = Object.fromEntries(readingIds.map(id => [id, RANDOM_POINTS.readingEach]));
+  const writingPts = Object.fromEntries(writingIds.map(id => [id, RANDOM_POINTS.writingEach]));
+  const missing = [{ part: 'listening', pts: RANDOM_POINTS.listening }];
+  return {
+    passageIds: [letter.id, text.id], readingIds, writingIds,
+    points: { reading, writing: writingPts, missing, total: sumPts(reading) + sumPts(writingPts) + RANDOM_POINTS.listening }
+  };
+}
+
+function startMock(id) {
+  const exam = EXAMS[id];
+  if (!exam) return;
+  const parts = id === 'mock-random' ? randomMockParts() : exam;
+  const now = Date.now();
+  local.mock = {
+    uid: sessionOwner(), id, title: exam.title, startedAt: now, endsAt: now + MOCK_MINUTES * 60000,
+    listening: exam.listening || 0, passageIds: parts.passageIds.slice(), readingIds: parts.readingIds.slice(),
+    writingIds: parts.writingIds.slice(), points: parts.points, answers: {}, graded: {}
+  };
+  saveLocal();
+  go('#/mock/run');
+}
+
+function viewMockList() {
+  const head = `
+    ${crumbs([[t('crumb_home'), '#/'], [t('crumb_mock')]])}
+    <section class="section-head">
+      <h1>${t('mock_title')}</h1>
+      <p>${t('mock_intro', { m: MOCK_MINUTES })}</p>
+    </section>`;
+  if (guest) return page(`${head}${lockedHtml('locked_mock')}`);
+  const run = mockRun();
+  const history = mockHistory();
+  const best = id => {
+    const xs = history.filter(a => a.id === id && a.total);
+    return xs.length ? xs.reduce((b, a) => (!b || a.earned / a.total > b.earned / b.total ? a : b), null) : null;
+  };
+  const card = e => {
+    const b = best(e.id);
+    const random = e.group === 'random';
+    const info = (random ? t('mock_random_desc') : t(e.writingIds.length ? 'mock_card_info' : 'mock_card_info_nw', { r: e.readingIds.length, w: e.writingIds.length }))
+      + (e.points ? ` · ${t('mock_total', { t: fmtScore(e.points.total) })}` : '');
+    return `
+      <div class="mock-card ${e.group}">
+        <h3>${esc(titleText(e.title))}</h3>
+        <p>${info}</p>
+        <div class="mock-card-foot">
+          <span class="mock-best">${b === null ? t('mock_not_done') : t('mock_best', { s: scoreLine(b) })}</span>
+          <button class="btn primary" data-mock="${e.id}">${t('mock_start')}</button>
+        </div>
+      </div>`;
+  };
+  const group = g => mockExams(g).length ? `
+    <h2 class="mock-group">${t('mock_group_' + g)}</h2>
+    <section class="mock-grid">${mockExams(g).map(card).join('')}</section>` : '';
+  page(`
+    ${head}
+    ${run ? `
+      <div class="resume">
+        <div>${t('mock_resume_label', { title: esc(titleText(run.title)), time: clock(run.endsAt - Date.now()) })}</div>
+        <a class="btn primary" href="#/mock/run">${t('resume_btn')}</a>
+      </div>` : ''}
+    ${group('exam')}${group('sh')}${group('random')}
+    <section class="panel">
+      <h2>${t('mock_history')}</h2>
+      ${history.length ? `<div class="history">${history.slice(0, 15).map(a => `
+        <a class="h-item mock-h" href="#/mock/result/${a.at}">
+          <span class="mark">📝</span>
+          <div class="h-body"><div class="h-cue">${esc(titleText(a.title))}</div><div class="h-text">${t('mock_parts_line', { r: a.parts.reading.c, rn: a.parts.reading.n, w: a.parts.writing.c, wn: a.parts.writing.n })}</div></div>
+          <span class="h-meta"><b>${a.total ? scoreLine(a) : ''}</b><br>${new Date(a.at).toLocaleString(t('date_locale'), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+        </a>`).join('')}</div>` : `<p class="empty">${t('mock_history_empty')}</p>`}
+    </section>`);
+  $$('[data-mock]').forEach(b => b.addEventListener('click', () => {
+    if (mockRun() && !confirm(t('mock_replace_confirm'))) return;
+    startMock(b.dataset.mock);
+  }));
+}
+
+// Một câu trong đề thi: chọn đáp án hoặc gõ đáp án, chưa chấm.
+function mockQuestionHtml(q, answer, n) {
+  const writing = modOf(q) === 'writing';
+  if (writing) {
+    return `
+      <div class="mq" data-mq="${q.id}">
+        <div class="mq-head"><span class="mq-num">${t('q_num', { n })}</span><span class="q-label">${t('q_label')}</span></div>
+        <div class="cues">${cuesHtml(q.cues)}</div>
+        <textarea data-answer="${q.id}" rows="2" maxlength="300" placeholder="${t('placeholder')}" spellcheck="false" autocomplete="off" autocapitalize="off">${esc(answer || '')}</textarea>
+      </div>`;
+  }
+  const choice = isChoice(q);
+  const label = !choice ? typedLabel(q) : q.type === 'reading_tf' ? t('q_label_tf') : q.prompt ? t('q_label_mc') : t('q_label_blank', { n: q.num });
+  const prompt = q.prompt ? esc(q.prompt).replace(/_{3,}/, '<span class="gap-line"></span>') : t(choice ? 'blank_prompt' : 'gap_prompt', { n: q.num });
+  const limit = q.maxWords ? `<span class="rq-limit">${t(q.maxWords === 1 ? 'limit_one' : 'limit_words', { n: q.maxWords })}</span>` : '';
+  let body;
+  if (choice) {
+    const values = q.type === 'reading_tf' ? ['True', 'False'] : LETTERS.slice(0, q.options.length);
+    body = `<div class="choices ${q.type === 'reading_tf' ? 'tf' : 'mc'}">${values.map(v => `
+      <button type="button" class="choice${v === answer ? ' picked' : ''}" data-pick="${q.id}" data-choice="${v}">
+        <span class="ch-key">${q.options ? v : v[0]}</span><span class="ch-text">${esc(q.options ? q.options[LETTERS.indexOf(v)] : v)}</span></button>`).join('')}</div>`;
+  } else {
+    const opts = q.type === 'reading_gap' && q.options
+      ? `<div class="gap-opts"><span>${t('gap_options')}</span>${q.options.map(o => `<span class="gap-opt">${esc(o)}</span>`).join('')}</div>` : '';
+    body = opts + (q.type === 'reading_open'
+      ? `<textarea data-answer="${q.id}" rows="2" maxlength="300" placeholder="${t('ph_open')}" spellcheck="false" autocomplete="off" autocapitalize="off">${esc(answer || '')}</textarea>`
+      : `<input data-answer="${q.id}" class="word-input" type="text" maxlength="120" placeholder="${t(q.type === 'reading_word' ? 'ph_word' : 'ph_gap')}" spellcheck="false" autocomplete="off" autocapitalize="off" value="${esc(answer || '')}">`);
+  }
+  return `
+    <div class="mq" data-mq="${q.id}">
+      <div class="mq-head"><span class="mq-num">${t('q_num', { n: q.num })}</span><span class="q-label">${label}</span></div>
+      <div class="rq-prompt">${prompt}${limit}</div>
+      ${body}
+    </div>`;
+}
+
+function listeningNoteHtml(n, pts) {
+  return `
+    <section class="mock-part">
+      <h2>${t('mock_part_listening', { p: fmtScore(pts) })}</h2>
+      <div class="mock-note">🎧 ${t('mock_listening_note', { n, p: fmtScore(pts) })}</div>
+    </section>`;
+}
+
+function viewMockRun() {
+  const r = mockRun();
+  if (!r) return go('#/mock');
+  if (r.submitting || Date.now() >= r.endsAt) return submitMock(true);
+  const blankState = { results: [] };
+  const byPassage = pid => r.readingIds.filter(id => Q_BY_ID[id] && Q_BY_ID[id].passage === pid).map(id => Q_BY_ID[id]);
+  const total = r.readingIds.length + r.writingIds.length;
+  page(`
+    ${crumbs([[t('crumb_mock'), '#/mock'], [titleText(r.title)]])}
+    <section class="mock-bar">
+      <div class="mock-bar-title"><b>${esc(titleText(r.title))}</b><span id="mock-count"></span></div>
+      <div class="mock-timer" id="mock-timer">⏱ ${clock(r.endsAt - Date.now())}</div>
+      <button class="btn primary" data-submit>${t('mock_submit')}</button>
+    </section>
+    ${listeningNoteHtml(r.listening, missingPts(r.points, 'listening'))}
+    <section class="mock-part">
+      <h2>${t('mock_part_reading', { p: fmtScore(sumPts(r.points.reading)) })}</h2>
+      ${r.passageIds.map(pid => {
+        const p = PASSAGES[pid];
+        if (!p) return '';
+        return `<div class="mock-passage">${passageHtml(p, {}, blankState, null)}<div class="mock-qs">${byPassage(pid).map(q => mockQuestionHtml(q, r.answers[q.id])).join('')}</div></div>`;
+      }).join('')}
+    </section>
+    <section class="mock-part">
+      <h2>${t('mock_part_writing', { p: fmtScore(sumPts(r.points.writing) + missingPts(r.points, 'rearrange')) })}</h2>
+      ${missingPts(r.points, 'rearrange') ? `<div class="mock-note">${t('mock_rearrange_note', { p: fmtScore(missingPts(r.points, 'rearrange')) })}</div>` : ''}
+      ${r.writingIds.length ? `<p class="mock-sub">${t('mock_writing_intro')}</p>${r.writingIds.map((id, i) => Q_BY_ID[id] ? mockQuestionHtml(Q_BY_ID[id], r.answers[id], i + 1) : '').join('')}`
+        : `<div class="mock-note">${t('mock_no_writing')}</div>`}
+    </section>
+    <div class="mock-end"><button class="btn primary big" data-submit>${t('mock_submit')}</button></div>`);
+
+  const count = () => {
+    const done = r.readingIds.concat(r.writingIds).filter(id => String(r.answers[id] || '').trim()).length;
+    $('#mock-count').textContent = t('mock_answered', { n: done, t: total });
+    return done;
+  };
+  count();
+  $$('[data-pick]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.pick;
+    r.answers[id] = b.dataset.choice;
+    $$(`[data-pick="${id}"]`).forEach(x => x.classList.toggle('picked', x === b));
+    window.Sound.play('tap');
+    saveLocal();
+    count();
+  }));
+  $$('[data-answer]').forEach(f => f.addEventListener('input', () => { r.answers[f.dataset.answer] = f.value; saveLocal(); count(); }));
+  $$('[data-submit]').forEach(b => b.addEventListener('click', () => {
+    const left = total - count();
+    if (!confirm(left ? t('mock_confirm_blank', { n: left }) : t('mock_confirm'))) return;
+    submitMock(false);
+  }));
+  const tick = () => {
+    const el = $('#mock-timer');
+    if (!el) { clearInterval(mockTimer); mockTimer = null; return; }
+    const left = r.endsAt - Date.now();
+    el.textContent = `⏱ ${clock(left)}`;
+    el.classList.toggle('low', left < 5 * 60000);
+    if (left <= 0) { clearInterval(mockTimer); mockTimer = null; submitMock(true); }
+  };
+  mockTimer = setInterval(tick, 1000);
+}
+
+// Điểm tối đa của một câu theo bảng điểm của đề, và điểm đạt được. Câu tự viết có nhiều ý: điểm theo số ý đúng.
+const mockMax = (points, id) => (points.reading[id] !== undefined ? points.reading[id] : points.writing[id] || 0);
+function mockPoints(points, id, res) {
+  const max = mockMax(points, id);
+  if (res.correct) return max;
+  if (res.kind === 'open' && res.ideas && res.ideas.length > 1 && !res.error) return max * res.ideas.filter(Boolean).length / res.ideas.length;
+  return 0;
+}
+
+let mockSubmitting = false;
+async function submitMock(auto) {
+  const r = mockRun();
+  if (!r || mockSubmitting) return;
+  mockSubmitting = true;
+  if (mockTimer) { clearInterval(mockTimer); mockTimer = null; }
+  r.submitting = true;
+  saveLocal();
+  const ids = r.readingIds.concat(r.writingIds).filter(id => Q_BY_ID[id]);
+  const show = done => page(`
+    <section class="summary mock-grading">
+      <div class="sum-face" aria-hidden="true">📝</div>
+      <h1>${t(auto ? 'mock_time_up' : 'mock_grading')}</h1>
+      <p>${t('mock_grading_n', { i: done, n: ids.length })}</p>
+      <div class="bar"><span style="width:${pct(done, ids.length)}%"></span></div>
+    </section>`);
+  try {
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      show(i);
+      if (r.graded[id]) continue;
+      const answer = String(r.answers[id] || '').trim();
+      const res = await api.checkAnswer({
+        examId: r.id, submissionId: r.submissionId || null, questionId: id,
+        userAnswer: answer || '—', strict: local.settings.strict, final: i === ids.length - 1
+      });
+      r.submissionId = res.submissionId;
+      profile = res.profile;
+      const result = Object.assign(res.result, answer ? {} : { correct: false, blank: true });
+      r.graded[id] = result;
+      saveLocal();
+    }
+  } catch (err) {
+    console.error(err);
+    mockSubmitting = false;
+    page(`
+      <section class="summary">
+        <div class="sum-face" aria-hidden="true">😕</div>
+        <h1>${t('mock_grade_error')}</h1>
+        <div class="sum-actions"><button class="btn primary" id="mock-retry">${t('retry')}</button></div>
+      </section>`);
+    $('#mock-retry').addEventListener('click', () => submitMock(auto));
+    return;
+  }
+  const part = list => {
+    const items = list.filter(id => r.graded[id]);
+    const pts = items.reduce((sum, id) => sum + mockPoints(r.points, id, r.graded[id]), 0);
+    const max = list.reduce((sum, id) => sum + mockMax(r.points, id), 0);
+    return { pts, max, c: items.filter(id => r.graded[id].correct).length, n: items.length };
+  };
+  const parts = { reading: part(r.readingIds), writing: part(r.writingIds) };
+  const earned = parts.reading.pts + parts.writing.pts;
+  const attempt = {
+    uid: r.uid, id: r.id, title: r.title, at: Date.now(), startedAt: r.startedAt, listening: r.listening,
+    earned, total: r.points.total, points: r.points, parts,
+    passageIds: r.passageIds, readingIds: r.readingIds, writingIds: r.writingIds, results: r.graded
+  };
+  local.mockResults = (local.mockResults || []).concat(attempt);
+  // Giữ 20 lần thi gần nhất của mỗi tài khoản trên máy này.
+  const mine = local.mockResults.filter(a => a.uid === r.uid).sort((a, b) => b.at - a.at);
+  const drop = new Set(mine.slice(20).map(a => a.at));
+  local.mockResults = local.mockResults.filter(a => a.uid !== r.uid || !drop.has(a.at));
+  local.mock = null;
+  mockSubmitting = false;
+  saveLocal();
+  renderHeader();
+  window.Sound.play('finish');
+  go(`#/mock/result/${attempt.at}`);
+}
+
+function viewMockResult(at) {
+  const a = mockHistory().find(x => String(x.at) === String(at));
+  if (!a) return go('#/mock');
+  if (!a.total) return go('#/mock');   // lần thi của bản cũ (thang cố định) — không còn hiển thị
+  const pctScore = a.earned / a.total;
+  const face = pctScore >= 0.6 ? '🏆' : pctScore >= 0.45 ? '🥳' : pctScore >= 0.3 ? '😊' : '💪';
+  const answerText = (q, res) => (res.blank ? `<i>${t('mock_blank')}</i>` : esc(answerLabel(q, res.userAnswer)));
+  const item = (q, res, n) => {
+    const pts = mockPoints(a.points, q.id, res);
+    const max = mockMax(a.points, q.id);
+    return `
+      <details class="mr-item ${res.correct ? 'ok' : 'bad'}">
+        <summary><span class="mark">${res.correct ? '✓' : '✗'}</span><span class="mr-q">${t('q_num', { n })}</span>
+          <span class="mr-a">${answerText(q, res)}</span><span class="mr-pts">${fmtScore(pts)}/${fmtScore(max)}</span></summary>
+        ${modOf(q) === 'writing' ? `<div class="cues">${cuesHtml(q.cues)}</div>${feedbackHtml(res)}` : readingFeedbackHtml(res, q)}
+      </details>`;
+  };
+  const blankState = { results: [] };
+  page(`
+    ${crumbs([[t('crumb_mock'), '#/mock'], [t('mock_result')]])}
+    <section class="summary mock-result">
+      <div class="sum-face" aria-hidden="true">${face}</div>
+      <div class="mock-score"><b>${fmtScore(a.earned)}</b><span>/${fmtScore(a.total)} ${t('mock_pts')}</span><em>${pctOf(a.earned, a.total)}%</em></div>
+      <h1>${esc(titleText(a.title))}</h1>
+      <p class="mock-score-note">${t('mock_score_note', {
+        m: (a.points.missing || []).map(x => t('mock_missing_' + x.part, { p: fmtScore(x.pts) })).join(', '),
+        a: fmtScore(a.total - (a.points.missing || []).reduce((x, m) => x + m.pts, 0)), t: fmtScore(a.total)
+      })}</p>
+      <div class="mock-parts">
+        <div><b>🎧 Listening</b><span>${t('mock_part_na')} · /${fmtScore(missingPts(a.points, 'listening'))}</span></div>
+        <div><b>📖 Reading</b><span>${fmtScore(a.parts.reading.pts)}/${fmtScore(a.parts.reading.max)} · ${t('mock_correct', { c: a.parts.reading.c, n: a.parts.reading.n })}</span></div>
+        <div><b>✍️ Writing</b><span>${a.parts.writing.n ? `${fmtScore(a.parts.writing.pts)}/${fmtScore(a.parts.writing.max + missingPts(a.points, 'rearrange'))} · ${t('mock_correct', { c: a.parts.writing.c, n: a.parts.writing.n })}` : t('mock_part_na')}</span></div>
+      </div>
+      <div class="sum-actions">
+        <button class="btn primary" id="mock-again">${t('mock_again')}</button>
+        <a class="btn ghost" href="#/mock">${t('mock_back')}</a>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>${t('mock_review')}</h2>
+      ${a.passageIds.map(pid => {
+        const p = PASSAGES[pid];
+        if (!p) return '';
+        const qs = a.readingIds.filter(id => Q_BY_ID[id] && Q_BY_ID[id].passage === pid && a.results[id]);
+        return `
+          <details class="mr-passage"><summary>${t('mock_show_passage', { title: esc(p.title) })}</summary>${passageHtml(p, {}, blankState, null)}</details>
+          ${qs.map(id => item(Q_BY_ID[id], a.results[id], Q_BY_ID[id].num)).join('')}`;
+      }).join('')}
+      ${a.writingIds.length ? `<h3 class="topic-group">Writing</h3>${a.writingIds.filter(id => Q_BY_ID[id] && a.results[id]).map((id, i) => item(Q_BY_ID[id], a.results[id], i + 1)).join('')}` : ''}
+    </section>`);
+  $('#mock-again').addEventListener('click', () => {
+    if (mockRun() && !confirm(t('mock_replace_confirm'))) return;
+    startMock(a.id);
+  });
+}
+
 function routeMod(m, rest) {
   if (!rest[0]) return viewHub(m);
   if (rest[0] === 'learn') return rest[1] ? viewLesson(m, rest[1]) : viewLearnList(m);
@@ -1422,6 +1785,7 @@ function route() {
   if (!(parts[0] === 'reading' && parts[3] === 'run')) lastPassage = null;
   if (!parts.length) return viewHome();
   if (parts[0] === 'results') return guest ? viewHome() : viewResults();
+  if (parts[0] === 'mock') return parts[1] === 'run' && !guest ? viewMockRun() : parts[1] === 'result' && !guest ? viewMockResult(parts[2]) : viewMockList();
   if (parts[0] === 'writing') return routeMod('writing', parts.slice(1));
   if (parts[0] === 'reading') {
     if (!parts[1]) return viewReading();

@@ -308,7 +308,7 @@ const readingTest = (name, fn) => test(name, () => { if (hasReading) fn(); else 
 const readingIds = () => built.questionDocs.filter(d => d.data.type !== 'writing_cues' && d.data.part !== 'passage').map(d => d.id);
 
 readingTest('reading bank: 60 letters and 60 texts, 4 questions each, answers only in answers/', () => {
-  const bookPassages = built.passageDocs.filter(d => d.data.part !== 'passage');
+  const bookPassages = built.passageDocs.filter(d => /^r[lt]-b/.test(d.id));   // 60 đề sách 8020 (không tính đề thật chép sang)
   const parts = bookPassages.map(d => d.data.part);
   assert.strictEqual(parts.filter(p => p === 'letter').length, 60);
   assert.strictEqual(parts.filter(p => p === 'text').length, 60);
@@ -361,7 +361,8 @@ readingTest('reading: choice answers are marked case-insensitively and share sta
 readingTest('reading: exams per test, per part and per question type', () => {
   ['rl-b1-t01', 'rt-b2-t30', 'rl-all', 'rt-all'].forEach(id => assert.ok(built.examDocs.some(e => e.id === id), id));
   const all = built.examDocs.find(e => e.id === 'rl-all');
-  assert.strictEqual(all.data.questionIds.length, 240);
+  assert.strictEqual(all.data.questionIds.filter(id => id.startsWith('rl-b')).length, 240);
+  if (hasBank) ['rl-e2025-1', 'rl-e2026-4'].forEach(id => assert.ok(all.data.questionIds.includes(id), id));
   assert.ok(all.data.questionIds.every(id => QUESTIONS[id].part === 'letter'));
   Object.entries(win.READING_LESSONS).filter(([part]) => part !== 'passage').flatMap(([, ls]) => ls).forEach(l => {
     const n = readingIds().filter(id => QUESTIONS[id].topics.includes(l.id)).length;
@@ -445,6 +446,23 @@ bankTest('passage bank: every exam groups its passages, open keys accept their s
     assert.ok(ReadingGrader.grade(d.data, d.data.answer).correct, `${d.id}: key rejects its own answer`);
   });
   assert.deepStrictEqual(Array.from(built.examDocs.find(e => e.id === 'rp-e2025').data.passageIds), ['rp-e2025a', 'rp-e2025b']);
+});
+
+bankTest('mock tests: 5 real exams and 10 Stemhouse tests, reading from the passage bank, no worked examples', () => {
+  const mocks = built.examDocs.filter(e => e.data.kind === 'mock');
+  assert.strictEqual(mocks.filter(e => e.data.group === 'exam').length, 5);
+  assert.strictEqual(mocks.filter(e => e.data.group === 'sh').length, 10);
+  assert.ok(mocks.some(e => e.id === 'mock-random'));
+  const examples = new Set(win.WRITING_QUESTIONS.filter(q => q.example).map(q => q.id));
+  mocks.forEach(({ id, data }) => {
+    data.writingIds.forEach(w => assert.ok(QUESTIONS[w] && !examples.has(w), `${id}: ${w}`));
+    data.readingIds.forEach(r => assert.strictEqual(QUESTIONS[r].part, 'passage', `${id}: ${r}`));
+  });
+  assert.deepStrictEqual(Array.from(built.examDocs.find(e => e.id === 'mock-e2025').data.writingIds), ['w09', 'w16']);
+  // Bảng điểm theo đáp án từng đề: tổng 30 (2022–2024, Stemhouse), 20 (2025, 2026), 22 (Stemhouse đề 1).
+  const total = id => built.examDocs.find(e => e.id === id).data.points.total;
+  assert.deepStrictEqual(['mock-e2022', 'mock-e2024', 'mock-e2025', 'mock-e2026', 'mock-sh01', 'mock-sh08'].map(total), [30, 30, 20, 20, 22, 30]);
+  assert.strictEqual(built.examDocs.find(e => e.id === 'mock-e2023').data.points.reading['rp-e2023-5'], 3);
 });
 
 let failed = 0;

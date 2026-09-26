@@ -20,6 +20,11 @@ Chạy hoàn toàn trên **gói Spark (miễn phí)** của Firebase: Hosting + 
   - Practice: làm từng câu cạnh bài đọc; sau khi Check, chỗ chứa đáp án trong bài được tô vàng kèm giải thích vi/en.
     Luyện theo đề, theo dạng câu hỏi, tất cả, ôn câu sai, luyện mỗi ngày. Sao và chuỗi đúng dùng chung với Writing.
   - Đáp án theo sách; giải thích và câu bằng chứng là phần soạn thêm.
+- **Mock Test — Thi thử** (`#/mock`): đề đủ 3 phần làm trong 45 phút, nộp bài (hoặc hết giờ) mới chấm.
+  Đề: 5 đề thật 2022–2026, 10 đề Stemhouse (`exams/mock-*`, seed.js ghép Reading + Writing của đúng đề đó,
+  bỏ câu ví dụ `example: true`) và đề ngẫu nhiên từ sách 8020 (1 thư + 1 đoạn văn + 2 câu Writing).
+  Điểm theo đúng bảng điểm trong đáp án của từng đề (`MOCK_POINTS` trong seed.js; tổng 20, 22 hoặc 30), ghi kèm %;
+  Listening (chưa có file nghe) và câu sắp xếp từ của Stemhouse tính vào tổng nhưng chưa làm được trên app. Kết quả các lần thi lưu trên máy (localStorage), từng câu vẫn được chấm và lưu như Practice.
 - **Listening**: sắp ra mắt.
 - **Dùng thử không cần đăng nhập**: khách xem được 2 bài học đầu mỗi phần, làm 5 câu Writing và bài đọc đầu tiên của
   mỗi phần Reading (`exams/trial`); sao chỉ lưu trên máy.
