@@ -711,6 +711,22 @@ mark.evi { background: var(--star-soft); color: inherit; border-bottom: 3px soli
 .h-body { flex: 1; min-width: 0; }
 .h-meta { font-size: .78rem; color: var(--muted); text-align: right; flex: none; }
 
+/* Listening: trình phát + câu hỏi, lời thoại sau khi chấm */
+.passage.listening { border-top-color: var(--orange); }
+.passage.listening .passage-label { color: var(--orange); }
+.passage.listening audio { width: 100%; margin: 6px 0 12px; }
+.listen-example { font-size: 1rem; color: var(--muted); }
+.listen-example u { color: var(--text); font-weight: 800; text-decoration-color: var(--orange); }
+.listen-qs { margin: 8px 0 0; padding-left: 0; list-style: none; display: grid; gap: 8px; font-size: 1.02rem; }
+.listen-qs li { padding: 6px 10px; border-radius: 12px; }
+.listen-qs li.current { background: var(--primary-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent); }
+.listen-script { margin-top: 12px; padding: 10px 14px; border-radius: 16px; background: var(--surface-2); }
+.listen-script > summary { cursor: pointer; font-weight: 800; color: var(--orange); }
+.listen-script p { margin: 6px 0 0; }
+.listen-ref { background: var(--surface); border: 3px solid var(--line); border-radius: 20px; padding: 14px 18px; margin-top: 10px; }
+.ref-opts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 0 18px; color: var(--muted); }
+.ref-ans { margin: 4px 0 0 18px; color: var(--ok); font-weight: 800; }
+
 /* ---------- Thi thử (Mock Test) ---------- */
 .mock-banner {
   display: flex; align-items: center; gap: 16px; margin-top: 20px; padding: 18px 22px; border-radius: 26px;

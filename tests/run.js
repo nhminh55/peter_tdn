@@ -10,7 +10,7 @@ const path = require('path');
 const Grader = require('../public/js/grader');
 const Scoring = require('../public/js/scoring');
 const ReadingGrader = require('../public/js/reading-grader');
-const { buildDocs, buildPassageDocs, loadBrowserGlobals, writingExtraFiles, addWritingSources } = require('../scripts/seed');
+const { buildDocs, buildPassageDocs, loadBrowserGlobals, writingExtraFiles, addWritingSources, listeningFilesIn } = require('../scripts/seed');
 
 const ROOT = path.resolve(__dirname, '..');
 // Ngân hàng Reading (scripts/source/reading.js) chỉ có trên máy như data.js; thiếu thì bỏ qua các test Reading.
@@ -23,10 +23,15 @@ const hasBank = hasReading && bankFiles.length > 0;
 // Câu Writing lấy thêm từ đề thật / Stemhouse (scripts/source/writing-extra*.js), như seed.js.
 const win = loadBrowserGlobals([path.join(ROOT, 'scripts/source/data.js')].concat(writingExtraFiles(),
   [path.join(ROOT, 'public/js/lessons.js'), path.join(ROOT, 'public/js/lessons-reading.js')],
-  hasReading ? [READING_FILE] : [], hasBank ? bankFiles : []));
+  hasReading ? [READING_FILE] : [], hasBank ? bankFiles : [], [path.join(ROOT, 'public/js/lessons-listening.js')],
+  listeningFilesIn(path.join(ROOT, 'scripts/source'))));
+const hasListening = (win.LISTENING_BANK || []).length > 0;
 addWritingSources(win.WRITING_QUESTIONS, win.WRITING_EXTRA_SRC);
 const built = buildDocs(win.WRITING_QUESTIONS, win.LESSONS, win.TRIAL,
-  hasReading ? { passages: win.READING_PASSAGES, bank: win.READING_PASSAGE_BANK || [], lessons: win.READING_LESSONS } : null);
+  hasReading ? {
+    passages: win.READING_PASSAGES, bank: win.READING_PASSAGE_BANK || [], lessons: win.READING_LESSONS,
+    listening: win.LISTENING_BANK || [], listeningLessons: win.LISTENING_LESSONS || [], listeningRef: win.LISTENING_REF || {}
+  } : null);
 const KEYS = Object.fromEntries(built.answerDocs.map(d => [d.id, d.data]));
 const QUESTIONS = Object.fromEntries(built.questionDocs.map(d => [d.id, d.data]));
 const isWriting = id => QUESTIONS[id].type === 'writing_cues';
@@ -305,7 +310,7 @@ test('trial exam: TRIAL.questions questions from the first TRIAL.lessons lessons
 
 const readingTest = (name, fn) => test(name, () => { if (hasReading) fn(); else console.log('    (skipped: no scripts/source/reading.js)'); });
 // Câu của 2 phần theo sách 8020 (thư, đoạn văn); bài đọc dài có test riêng bên dưới.
-const readingIds = () => built.questionDocs.filter(d => d.data.type !== 'writing_cues' && d.data.part !== 'passage').map(d => d.id);
+const readingIds = () => built.questionDocs.filter(d => d.data.type !== 'writing_cues' && d.data.part !== 'passage' && d.data.part !== 'listening').map(d => d.id);
 
 readingTest('reading bank: 60 letters and 60 texts, 4 questions each, answers only in answers/', () => {
   const bookPassages = built.passageDocs.filter(d => /^r[lt]-b/.test(d.id));   // 60 đề sách 8020 (không tính đề thật chép sang)
@@ -372,11 +377,11 @@ readingTest('reading: exams per test, per part and per question type', () => {
 
 readingTest('trial exam: the first passage of each reading part', () => {
   const trial = built.examDocs.find(e => e.id === 'trial').data;
-  const passages = ['rl-b1-t01', 'rt-b1-t01'].concat(hasBank ? ['rp-e2023'] : []);
+  const passages = ['rl-b1-t01', 'rt-b1-t01'].concat(hasBank ? ['rp-e2023'] : [], hasListening ? ['ll-01'] : []);
   assert.deepStrictEqual(Array.from(trial.passageIds), passages);
   const reading = Array.from(trial.questionIds).filter(id => !isWriting(id));   // mảng từ sandbox vm: đưa về Array thường
   const expected = ['rl-b1-t01', 'rt-b1-t01'].flatMap(p => [1, 2, 3, 4].map(n => `${p}-${p[1] === 'l' ? n : n + 4}`))
-    .concat(hasBank ? [1, 2, 3, 4, 5, 6].map(n => `rp-e2023-${n}`) : []);
+    .concat(hasBank ? [1, 2, 3, 4, 5, 6].map(n => `rp-e2023-${n}`) : [], hasListening ? [1, 2, 3, 4].map(n => `ll-01-${n}`) : []);
   assert.deepStrictEqual(reading, expected);
 });
 
@@ -463,6 +468,21 @@ bankTest('mock tests: 5 real exams and 10 Stemhouse tests, reading from the pass
   const total = id => built.examDocs.find(e => e.id === id).data.points.total;
   assert.deepStrictEqual(['mock-e2022', 'mock-e2024', 'mock-e2025', 'mock-e2026', 'mock-sh01', 'mock-sh08'].map(total), [30, 30, 20, 20, 22, 30]);
   assert.strictEqual(built.examDocs.find(e => e.id === 'mock-e2023').data.points.reading['rp-e2023-5'], 3);
+});
+
+test('listening: every test has its audio file, typed answers accept their model answer', () => {
+  if (!hasListening) return;
+  const docs = built.passageDocs.filter(d => d.data.part === 'listening');
+  assert.strictEqual(docs.length, win.LISTENING_BANK.length);
+  docs.forEach(({ id, data }) => {
+    assert.ok(fs.existsSync(path.join(ROOT, 'public/audio', data.audio)), `${id}: public/audio/${data.audio} missing`);
+    data.questionIds.forEach(q => {
+      const key = KEYS[q];
+      if (key.kind) assert.ok(ReadingGrader.grade(key, key.answer).correct, q);
+      else assert.ok(key.choice, q);
+    });
+  });
+  assert.ok(built.examDocs.find(e => e.id === 'mock-e2025').data.listeningRef, 'mock tests carry the exam listening questions for reference');
 });
 
 let failed = 0;

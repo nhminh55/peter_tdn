@@ -4,7 +4,7 @@
  * từ `answers`, chấm bằng Grader (Writing) hoặc so đáp án (Reading) rồi lưu vào `submissions`
  * (xem api.checkAnswer). localStorage chỉ giữ cài đặt giao diện và lượt đang làm dở.
  *
- * 4 mảng luyện tập (MODS): Writing, Reading › Read a letter / Read a text / Read a passage. Mỗi mảng có
+ * 5 mảng luyện tập (MODS): Writing, Reading › Read a letter / Read a text / Read a passage, Listening. Mỗi mảng có
  * Learn + Practice, lượt làm dở và "Luyện mỗi ngày" riêng; sao, chuỗi đúng và qstats dùng chung.
  *
  * Khách chưa đăng nhập được dùng thử (guest): xem TRIAL.lessons bài học đầu của mỗi mảng và làm các câu
@@ -17,10 +17,11 @@ const READING_LESSONS = window.READING_LESSONS;
 const TRIAL = window.TRIAL;
 const { STREAK_BONUS_EVERY, STREAK_BONUS_STARS } = window.Scoring;
 const MAX_WORDS = 15;
-const APP_VERSION = '1.3.3';
+const APP_VERSION = '1.4.0';
 // Số câu làm thử: TRIAL.questions câu Writing + TRIAL.passages bài đọc đầu tiên của mỗi phần Reading
 // (thư 4 câu, đoạn văn 4 câu, bài đọc dài: đề thật 2023 có 6 câu).
-const TRIAL_QUESTIONS = TRIAL.questions + (TRIAL.passages || 0) * (4 + 4 + 6);
+// Listening: bài nghe đầu tiên (4 câu).
+const TRIAL_QUESTIONS = TRIAL.questions + (TRIAL.passages || 0) * (4 + 4 + 6 + 4);
 
 let QUESTIONS = [];   // Writing: { id, cues, topics, source } · Reading: { id, type, part, passage, num, prompt?, options?, maxWords?, topics, source } — không có đáp án
 let Q_BY_ID = {};
@@ -38,10 +39,14 @@ const MODS = {
   writing: { base: '#/writing', lessons: LESSONS, key: 'writing', allExam: 'all', examPrefix: '' },
   letter: { base: '#/reading/letter', lessons: READING_LESSONS.letter, key: 'letter', allExam: 'rl-all', examPrefix: 'rl-' },
   text: { base: '#/reading/text', lessons: READING_LESSONS.text, key: 'text', allExam: 'rt-all', examPrefix: 'rt-' },
-  passage: { base: '#/reading/passage', lessons: READING_LESSONS.passage, key: 'passage', allExam: 'rp-all', examPrefix: 'rp-' }
+  passage: { base: '#/reading/passage', lessons: READING_LESSONS.passage, key: 'passage', allExam: 'rp-all', examPrefix: 'rp-' },
+  listening: { base: '#/listening', lessons: window.LISTENING_LESSONS || [], key: 'listening', allExam: 'll-all', examPrefix: 'll-' }
 };
+// File nghe chỉ có trên Firebase Hosting (không đưa lên repo công khai); bản GitHub Pages lấy từ đó.
+const AUDIO_BASE = location.hostname.endsWith('github.io') ? 'https://peter-tdn.web.app/audio/' : 'audio/';
 const READING_MODS = ['letter', 'text', 'passage'];
 const MOD_IDS = Object.keys(MODS);
+// Listening dùng chung cách làm bài của Reading (bài + câu hỏi, câu tự gõ).
 const isReading = m => m !== 'writing';
 const modOf = q => (q && q.part) || 'writing';
 const modQuestions = m => QUESTIONS.filter(q => modOf(q) === m);
@@ -139,6 +144,7 @@ const sourceLabel = source => source.map(s => {
   if (s.kind === 'exam') return t('src_exam', { y: s.year });
   if (s.kind === 'sh') return t('src_sh', { d: s.test });
   if (s.kind === 'shb') return t('src_shb', { n: s.n });
+  if (s.kind === 'listen') return t('src_listen', { n: s.n });
   return t('src_item', { b: s.book, d: s.test });
 }).join(' | ');
 const questionsForTopic = id => QUESTIONS.filter(q => q.topics.includes(id));
@@ -184,7 +190,7 @@ function sessionLabel(s) {
   const k = s.kind || {};
   const from = k.pool && k.pool !== 'all' ? ` · ${t('pool_' + k.pool)}` : '';
   if (k.mode === 'topic') return t('label_topic', { t: topicTitle(k.value) }) + from;
-  if (k.mode === 'exam' && (s.mod === 'passage' || /^(w|rl|rt)-/.test(k.value))) {
+  if (k.mode === 'exam' && (s.mod === 'passage' || s.mod === 'listening' || /^(w|rl|rt)-/.test(k.value))) {
     const e = EXAMS[k.value];
     return e ? (e.title[lang()] || e.title.vi) : k.value;
   }
@@ -212,6 +218,7 @@ function renderHeader() {
     ${inside ? `<nav class="nav">
       <a href="#/"${active('#/')}><span class="nav-ic">🏠</span>${t('nav_home')}</a>
       <a href="#/reading"${active('#/reading')}><span class="nav-ic">📖</span>${t('nav_reading')}</a>
+      <a href="#/listening"${active('#/listening')}><span class="nav-ic">🎧</span>${t('nav_listening')}</a>
       <a href="#/writing"${active('#/writing')}><span class="nav-ic">✏️</span>${t('nav_writing')}</a>
       <a href="#/mock"${active('#/mock')}><span class="nav-ic">📝</span>${t('nav_mock')}</a>
       ${guest ? '' : `<a href="#/results"${active('#/results')}><span class="nav-ic">🏆</span>${t('nav_results')}</a>`}
@@ -279,6 +286,7 @@ function crumbs(items) {
 function modCrumbs(m) {
   const home = [t('crumb_home'), '#/'];
   if (m === 'writing') return [home, [t('crumb_writing'), '#/writing']];
+  if (m === 'listening') return [home, [t('crumb_listening'), '#/listening']];
   return [home, [t('crumb_reading'), '#/reading'], [t('crumb_' + m), MODS[m].base]];
 }
 
@@ -322,11 +330,11 @@ function viewHome() {
     </section>
     ${guest ? guestBanner() : ''}
     <section class="skills">
-      <div class="skill listening disabled">
+      <a class="skill listening" href="#/listening">
         <div class="skill-icon">🎧</div>
         <h2>Listening</h2><p>${t('listening_desc')}</p>
-        <span class="badge">${t('coming_soon')}</span>
-      </div>
+        <span class="badge go">${guest ? t('listening_badge_guest', { q: modQuestions('listening').length }) : t('listening_badge', { p: modPassages('listening').length, q: modQuestions('listening').length, l: MODS.listening.lessons.length })}</span>
+      </a>
       <a class="skill reading" href="#/reading">
         <div class="skill-icon">📖</div>
         <h2>Reading</h2><p>${t('reading_desc')}</p>
@@ -605,7 +613,7 @@ function viewPracticeSetup(m) {
   // Read a passage và Writing: đề thật, Stemhouse 10 đề, Stemhouse tuyển tập — value là id đề.
   const passageExams = group => Object.values(EXAMS).filter(e => e.kind === 'test' && e.group === group
     && (m === 'writing' ? !e.part : e.part === m)).sort((a, b) => a.order - b.order);
-  const extraGroups = () => ['exam', 'sh', 'shb'].filter(g => passageExams(g).length).map(g => `<optgroup label="${t('exam_group_' + g)}">${
+  const extraGroups = () => ['exam', 'sh', 'shb', 'listen'].filter(g => passageExams(g).length).map(g => `<optgroup label="${t('exam_group_' + g)}">${
     passageExams(g).map(e => {
       const p = e.passageId && PASSAGES[e.passageId];
       return `<option value="${e.id}">${esc((e.title[lang()] || e.title.vi) + (p ? ` · ${p.title}` : ''))}</option>`;
@@ -616,7 +624,7 @@ function viewPracticeSetup(m) {
       const titles = (e.passageIds || []).map(id => PASSAGES[id] && PASSAGES[id].title).filter(Boolean).join(' + ');
       return `<option value="${e.id}">${esc((e.title[lang()] || e.title.vi) + (titles ? ` · ${titles}` : ''))}</option>`;
     }).join('')
-  }</optgroup>`).join('') : [1, 2].map(b => `<optgroup label="${t('book', { b })}">${
+  }</optgroup>`).join('') : m === 'listening' ? extraGroups() : [1, 2].map(b => `<optgroup label="${t('book', { b })}">${
     Array.from({ length: 30 }, (_, i) => i + 1).filter(d => EXAMS[MODS[m].examPrefix + examKey(b, d)])
       .map(d => {
         const p = PASSAGES[MODS[m].examPrefix + examKey(b, d)];
@@ -626,7 +634,7 @@ function viewPracticeSetup(m) {
   const allCard = reading ? `
       <div class="setup-card">
         <h3>${t('setup_all_' + m)}</h3>
-        <p>${t(m === 'passage' ? 'setup_all_desc_passage' : 'setup_all_desc_reading', { p: modPassages(m).length, n: modQuestions(m).length })}</p>
+        <p>${t(m === 'passage' || m === 'listening' ? 'setup_all_desc_' + m : 'setup_all_desc_reading', { p: modPassages(m).length, n: modQuestions(m).length })}</p>
         <button class="btn primary" data-mode="all">${t('start')}</button>
       </div>` : `
       <div class="setup-card">
@@ -705,7 +713,7 @@ function startSession(m, mode, value, poolOverride) {
   const p = poolOverride || (!guest && ['all', 'topic', 'daily'].includes(mode || 'all') ? modPool(m) : 'all');
   if (mode === 'topic') { examId = 'topic-' + value; ids = (EXAMS[examId] || {}).questionIds || questionsForTopic(value).map(q => q.id); }
   else if (mode === 'exam') {
-    examId = m === 'passage' || /^(w|rl|rt)-/.test(value) ? value : mod.examPrefix + examKey(...value.split('-'));
+    examId = m === 'passage' || m === 'listening' || /^(w|rl|rt)-/.test(value) ? value : mod.examPrefix + examKey(...value.split('-'));
     ids = (EXAMS[examId] || {}).questionIds || [];
   }
   else if (mode === 'wrong') { examId = mod.allExam; ids = wrongIds(m); }
@@ -895,7 +903,33 @@ function passageTextHtml(raw, evidence, gaps) {
 // Câu có chỗ trống nằm trong bài (đoạn văn điền khuyết; câu không có đề riêng của bài đọc dài).
 const inPassageBlank = q => q.part === 'text' || (q.part === 'passage' && !q.prompt);
 
+function listenHtml(p, q, s, pending, opts = {}) {
+  const evidence = pending ? pending.result.evidence : [];
+  const done = {};
+  (s.results || []).forEach(r => { if (Q_BY_ID[r.id] && Q_BY_ID[r.id].passage === p.id) done[Q_BY_ID[r.id].num] = r; });
+  const qs = passageQuestionIds(p.id).map(id => Q_BY_ID[id]);
+  const blank = '<span class="gap-line"></span>';
+  const line = rq => {
+    const r = done[rq.num];
+    const show = v => esc(isChoice(rq) ? choiceLabel(rq, v) : v);
+    const fill = r ? `<span class="gap ${r.correct ? 'ok' : 'bad'}">${r.correct ? '' : `<s>${show(r.picked)}</s> `}<span class="gap-word">${show(r.answer)}</span></span>` : blank;
+    const text = /_{3,}/.test(rq.prompt) ? esc(rq.prompt).replace(/_{3,}/, fill) : `${esc(rq.prompt)}${r ? ` → ${fill}` : ''}`;
+    return `<li class="${q && rq.id === q.id ? 'current' : ''}"><b>${t('q_num', { n: rq.num })}.</b> ${text}</li>`;
+  };
+  const showScript = opts.transcript || pending;
+  return `
+    <article class="passage listening">
+      <div class="passage-head"><span class="passage-label">${t('passage_listening')}</span><span class="q-src">${sourceLabel([p.source])}</span></div>
+      <p class="p-intro">${esc(p.intro)}</p>
+      <audio id="listen-audio" controls preload="auto" src="${AUDIO_BASE}${esc(p.audio)}"></audio>
+      ${p.example ? `<p class="listen-example"><b>${t('listen_example')}</b> ${esc(p.example.text).replace(/_{3,}/, `<u>${esc(p.example.answer)}</u>`)}</p>` : ''}
+      ${opts.noList ? '' : `<ol class="listen-qs">${qs.map(line).join('')}</ol>`}
+      ${showScript ? `<details class="listen-script" ${pending ? 'open' : ''}><summary>${t('listen_transcript')}</summary>${p.paragraphs.map(par => `<p>${passageTextHtml(par, evidence, {})}</p>`).join('')}</details>` : ''}
+    </article>`;
+}
+
 function passageHtml(p, q, s, pending) {
+  if (p.part === 'listening') return listenHtml(p, q, s, pending);
   const evidence = pending ? pending.result.evidence : [];
   // Các chỗ trống của bài này đã làm trong lượt: điền đáp án đúng (và gạch đáp án sai đã chọn).
   const gaps = {};
@@ -960,6 +994,7 @@ function viewReadingRun(m, s, q) {
   const pending = s.pending && s.pending.i === s.i ? s.pending : null;
   const samePassage = lastPassage === p.id;
   lastPassage = p.id;
+  const keptAudio = samePassage ? $('#listen-audio') : null;
   const choice = isChoice(q);
   const label = !choice ? typedLabel(q) : q.type === 'reading_tf' ? t('q_label_tf') : q.prompt ? t('q_label_mc') : t('q_label_blank', { n: q.num });
   const prompt = q.prompt ? esc(q.prompt).replace(/_{3,}/, '<span class="gap-line"></span>')
@@ -996,6 +1031,7 @@ function viewReadingRun(m, s, q) {
       </div>
     </section>`, samePassage);
 
+  if (keptAudio && $('#listen-audio')) $('#listen-audio').replaceWith(keptAudio);
   const typing = e => e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
   const field = $('#answer');
   const wc = $('#wc');
@@ -1339,7 +1375,7 @@ function viewResults() {
     <section class="panel">
       <h2>${t('by_topic')}</h2>
       ${s.answered ? MOD_IDS.map(m => `
-        <h3 class="topic-group">${m === 'writing' ? 'Writing' : `Reading · ${t('crumb_' + m)}`} <small>${t('part_progress', { c: totals(m).mastered, n: totals(m).total })}</small></h3>
+        <h3 class="topic-group">${m === 'writing' ? 'Writing' : m === 'listening' ? 'Listening' : `Reading · ${t('crumb_' + m)}`} <small>${t('part_progress', { c: totals(m).mastered, n: totals(m).total })}</small></h3>
         <div class="topic-rows">${topicRows(m)}</div>`).join('') : `<p class="empty">${t('empty_start')}</p>`}
     </section>
 
@@ -1459,10 +1495,13 @@ function randomMockParts() {
   const writingIds = writing.map(q => q.id);
   const reading = Object.fromEntries(readingIds.map(id => [id, RANDOM_POINTS.readingEach]));
   const writingPts = Object.fromEntries(writingIds.map(id => [id, RANDOM_POINTS.writingEach]));
-  const missing = [{ part: 'listening', pts: RANDOM_POINTS.listening }];
+  const listen = modPassages('listening').length ? any(modPassages('listening')) : null;
+  const listeningIds = listen ? passageQuestionIds(listen.id) : [];
+  const listening = Object.fromEntries(listeningIds.map(id => [id, RANDOM_POINTS.listening / listeningIds.length]));
+  const missing = listen ? [] : [{ part: 'listening', pts: RANDOM_POINTS.listening }];
   return {
-    passageIds: [letter.id, text.id], readingIds, writingIds,
-    points: { reading, writing: writingPts, missing, total: sumPts(reading) + sumPts(writingPts) + RANDOM_POINTS.listening }
+    passageIds: [letter.id, text.id], readingIds, writingIds, listenPassage: listen ? listen.id : null, listeningIds,
+    points: { reading, writing: writingPts, listening, missing, total: sumPts(reading) + sumPts(writingPts) + RANDOM_POINTS.listening }
   };
 }
 
@@ -1474,7 +1513,8 @@ function startMock(id) {
   local.mock = {
     uid: sessionOwner(), id, title: exam.title, startedAt: now, endsAt: now + MOCK_MINUTES * 60000,
     listening: exam.listening || 0, passageIds: parts.passageIds.slice(), readingIds: parts.readingIds.slice(),
-    writingIds: parts.writingIds.slice(), points: parts.points, answers: {}, graded: {}
+    writingIds: parts.writingIds.slice(), listenPassage: parts.listenPassage || null, listeningIds: (parts.listeningIds || []).slice(),
+    points: parts.points, answers: {}, graded: {}
   };
   saveLocal();
   go('#/mock/run');
@@ -1571,6 +1611,23 @@ function mockQuestionHtml(q, answer, n) {
     </div>`;
 }
 
+// Câu hỏi nghe của đề thật / Stemhouse (không có file nghe): chỉ để tham khảo, không làm.
+function listeningRefHtml(ref, pts, withAnswers) {
+  const blank = '<span class="gap-line"></span>';
+  const qText = q => esc(q.text).replace(/_{3,}/g, blank);
+  return `
+    <section class="mock-part">
+      <h2>${t('mock_part_listening', { p: fmtScore(pts) })}</h2>
+      <div class="mock-note">🎧 ${t('mock_listening_ref')}</div>
+      <div class="listen-ref">
+        <p class="p-intro">${esc(ref.intro || '')}</p>
+        ${ref.title ? `<h4 class="p-sub">${esc(ref.title)}</h4>` : ref.table ? `<h4 class="p-sub">${esc(ref.table)}</h4>` : ''}
+        ${ref.example ? `<p class="listen-example"><b>${t('listen_example')}</b> ${esc(ref.example.text).replace(/_{3,}/, `<u>${esc(ref.example.answer)}</u>`)}</p>` : ''}
+        <ol class="listen-qs">${(ref.questions || []).map(q => `<li><b>${t('q_num', { n: q.num })}.</b> ${qText(q)}${q.options ? `<div class="ref-opts">${q.options.map((o, i) => `<span>${'ABCD'[i]}. ${esc(o)}</span>`).join('')}</div>` : ''}${withAnswers ? `<div class="ref-ans">→ ${esc((q.answers || []).join(' / '))}</div>` : ''}</li>`).join('')}</ol>
+      </div>
+    </section>`;
+}
+
 function listeningNoteHtml(n, pts) {
   return `
     <section class="mock-part">
@@ -1585,7 +1642,7 @@ function viewMockRun() {
   if (r.submitting || Date.now() >= r.endsAt) return submitMock(true);
   const blankState = { results: [] };
   const byPassage = pid => r.readingIds.filter(id => Q_BY_ID[id] && Q_BY_ID[id].passage === pid).map(id => Q_BY_ID[id]);
-  const total = r.readingIds.length + r.writingIds.length;
+  const total = (r.listeningIds || []).length + r.readingIds.length + r.writingIds.length;
   page(`
     ${crumbs([[t('crumb_mock'), '#/mock'], [titleText(r.title)]])}
     <section class="mock-bar">
@@ -1593,7 +1650,14 @@ function viewMockRun() {
       <div class="mock-timer" id="mock-timer">⏱ ${clock(r.endsAt - Date.now())}</div>
       <button class="btn primary" data-submit>${t('mock_submit')}</button>
     </section>
-    ${listeningNoteHtml(r.listening, missingPts(r.points, 'listening'))}
+    ${r.listenPassage && PASSAGES[r.listenPassage] ? `
+      <section class="mock-part">
+        <h2>${t('mock_part_listening', { p: fmtScore(sumPts(r.points.listening)) })}</h2>
+        <div class="mock-passage">${listenHtml(PASSAGES[r.listenPassage], null, blankState, null, { noList: true })}
+          <div class="mock-qs">${r.listeningIds.map(id => Q_BY_ID[id] ? mockQuestionHtml(Q_BY_ID[id], r.answers[id]) : '').join('')}</div></div>
+      </section>`
+      : EXAMS[r.id] && EXAMS[r.id].listeningRef ? listeningRefHtml(EXAMS[r.id].listeningRef, missingPts(r.points, 'listening'), false)
+        : listeningNoteHtml(r.listening, missingPts(r.points, 'listening'))}
     <section class="mock-part">
       <h2>${t('mock_part_reading', { p: fmtScore(sumPts(r.points.reading)) })}</h2>
       ${r.passageIds.map(pid => {
@@ -1611,7 +1675,7 @@ function viewMockRun() {
     <div class="mock-end"><button class="btn primary big" data-submit>${t('mock_submit')}</button></div>`);
 
   const count = () => {
-    const done = r.readingIds.concat(r.writingIds).filter(id => String(r.answers[id] || '').trim()).length;
+    const done = (r.listeningIds || []).concat(r.readingIds, r.writingIds).filter(id => String(r.answers[id] || '').trim()).length;
     $('#mock-count').textContent = t('mock_answered', { n: done, t: total });
     return done;
   };
@@ -1642,7 +1706,7 @@ function viewMockRun() {
 }
 
 // Điểm tối đa của một câu theo bảng điểm của đề, và điểm đạt được. Câu tự viết có nhiều ý: điểm theo số ý đúng.
-const mockMax = (points, id) => (points.reading[id] !== undefined ? points.reading[id] : points.writing[id] || 0);
+const mockMax = (points, id) => [points.listening, points.reading, points.writing].map(x => (x || {})[id]).find(v => v !== undefined) || 0;
 function mockPoints(points, id, res) {
   const max = mockMax(points, id);
   if (res.correct) return max;
@@ -1658,7 +1722,7 @@ async function submitMock(auto) {
   if (mockTimer) { clearInterval(mockTimer); mockTimer = null; }
   r.submitting = true;
   saveLocal();
-  const ids = r.readingIds.concat(r.writingIds).filter(id => Q_BY_ID[id]);
+  const ids = (r.listeningIds || []).concat(r.readingIds, r.writingIds).filter(id => Q_BY_ID[id]);
   const show = done => page(`
     <section class="summary mock-grading">
       <div class="sum-face" aria-hidden="true">📝</div>
@@ -1700,12 +1764,13 @@ async function submitMock(auto) {
     const max = list.reduce((sum, id) => sum + mockMax(r.points, id), 0);
     return { pts, max, c: items.filter(id => r.graded[id].correct).length, n: items.length };
   };
-  const parts = { reading: part(r.readingIds), writing: part(r.writingIds) };
-  const earned = parts.reading.pts + parts.writing.pts;
+  const parts = { listening: part(r.listeningIds || []), reading: part(r.readingIds), writing: part(r.writingIds) };
+  const earned = parts.listening.pts + parts.reading.pts + parts.writing.pts;
   const attempt = {
     uid: r.uid, id: r.id, title: r.title, at: Date.now(), startedAt: r.startedAt, listening: r.listening,
     earned, total: r.points.total, points: r.points, parts,
-    passageIds: r.passageIds, readingIds: r.readingIds, writingIds: r.writingIds, results: r.graded
+    passageIds: r.passageIds, readingIds: r.readingIds, writingIds: r.writingIds,
+    listenPassage: r.listenPassage || null, listeningIds: r.listeningIds || [], results: r.graded
   };
   local.mockResults = (local.mockResults || []).concat(attempt);
   // Giữ 20 lần thi gần nhất của mỗi tài khoản trên máy này.
@@ -1749,7 +1814,9 @@ function viewMockResult(at) {
         a: fmtScore(a.total - (a.points.missing || []).reduce((x, m) => x + m.pts, 0)), t: fmtScore(a.total)
       })}</p>
       <div class="mock-parts">
-        <div><b>🎧 Listening</b><span>${t('mock_part_na')} · /${fmtScore(missingPts(a.points, 'listening'))}</span></div>
+        <div><b>🎧 Listening</b><span>${a.parts.listening && a.parts.listening.n
+          ? `${fmtScore(a.parts.listening.pts)}/${fmtScore(a.parts.listening.max)} · ${t('mock_correct', { c: a.parts.listening.c, n: a.parts.listening.n })}`
+          : `${t('mock_part_na')} · /${fmtScore(missingPts(a.points, 'listening'))}`}</span></div>
         <div><b>📖 Reading</b><span>${fmtScore(a.parts.reading.pts)}/${fmtScore(a.parts.reading.max)} · ${t('mock_correct', { c: a.parts.reading.c, n: a.parts.reading.n })}</span></div>
         <div><b>✍️ Writing</b><span>${a.parts.writing.n ? `${fmtScore(a.parts.writing.pts)}/${fmtScore(a.parts.writing.max + missingPts(a.points, 'rearrange'))} · ${t('mock_correct', { c: a.parts.writing.c, n: a.parts.writing.n })}` : t('mock_part_na')}</span></div>
       </div>
@@ -1760,6 +1827,12 @@ function viewMockResult(at) {
     </section>
     <section class="panel">
       <h2>${t('mock_review')}</h2>
+      ${a.listenPassage && PASSAGES[a.listenPassage] ? `
+        <h3 class="topic-group">Listening</h3>
+        <details class="mr-passage"><summary>${t('listen_transcript')}</summary>${listenHtml(PASSAGES[a.listenPassage], null, blankState, null, { noList: true, transcript: true })}</details>
+        ${a.listeningIds.filter(id => Q_BY_ID[id] && a.results[id]).map(id => item(Q_BY_ID[id], a.results[id], Q_BY_ID[id].num)).join('')}`
+        : EXAMS[a.id] && EXAMS[a.id].listeningRef ? `<h3 class="topic-group">${t('mock_listening_ref_answers')}</h3>${listeningRefHtml(EXAMS[a.id].listeningRef, missingPts(a.points, 'listening'), true)}` : ''}
+      ${a.passageIds.length ? '<h3 class="topic-group">Reading</h3>' : ''}
       ${a.passageIds.map(pid => {
         const p = PASSAGES[pid];
         if (!p) return '';
@@ -1792,6 +1865,7 @@ function route() {
   if (parts[0] === 'results') return guest ? viewHome() : viewResults();
   if (parts[0] === 'mock') return parts[1] === 'run' && !guest ? viewMockRun() : parts[1] === 'result' && !guest ? viewMockResult(parts[2]) : viewMockList();
   if (parts[0] === 'writing') return routeMod('writing', parts.slice(1));
+  if (parts[0] === 'listening') return routeMod('listening', parts.slice(1));
   if (parts[0] === 'reading') {
     if (!parts[1]) return viewReading();
     if (isReading(parts[1]) && MODS[parts[1]]) return routeMod(parts[1], parts.slice(2));

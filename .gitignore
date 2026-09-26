@@ -1,5 +1,6 @@
 resources/*.pdf
 resources/Dethi/
+resources/Listening/
 .DS_Store
 Thumbs.db
 node_modules/
@@ -23,3 +24,8 @@ scripts/source/passages/
 
 # Câu Writing lấy thêm từ đề thật / Stemhouse, có đáp án
 scripts/source/writing-extra*.js
+
+# Bài nghe (đáp án) và file nghe: chỉ để trên máy / Firebase Hosting, không lên repo công khai
+scripts/source/listening*.js
+scripts/source/listening-ref.js
+public/audio/

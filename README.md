@@ -25,7 +25,11 @@ Chạy hoàn toàn trên **gói Spark (miễn phí)** của Firebase: Hosting + 
   bỏ câu ví dụ `example: true`) và đề ngẫu nhiên từ sách 8020 (1 thư + 1 đoạn văn + 2 câu Writing).
   Điểm theo đúng bảng điểm trong đáp án của từng đề (`MOCK_POINTS` trong seed.js; tổng 20, 22 hoặc 30), ghi kèm %;
   Listening (chưa có file nghe) và câu sắp xếp từ của Stemhouse tính vào tổng nhưng chưa làm được trên app. Kết quả các lần thi lưu trên máy (localStorage), từng câu vẫn được chấm và lưu như Practice.
-- **Listening**: sắp ra mắt.
+- **Listening — nghe điền từ** (`#/listening`): 14 bài nghe có file mp3, 3 bài học; nghe rồi điền từ (chấm như câu tự gõ,
+  giới hạn số từ) hoặc chọn A/B/C; chấm xong hiện lời thoại và tô chỗ chứa đáp án. Đáp án soạn từ lời thoại (Whisper), không có đáp án gốc.
+  File nghe: `public/audio/lNN.mp3` — không lên repo (.gitignore), chỉ deploy lên Firebase Hosting; bản GitHub Pages lấy file từ web.app.
+  Dữ liệu: `scripts/source/listening-*.js` (bài nghe) và `listening-ref.js` (câu nghe của đề thật / Stemhouse, chưa có file nghe:
+  hiện để tham khảo trong Thi thử). Đề ngẫu nhiên của Thi thử có một bài nghe thật, có chấm.
 - **Dùng thử không cần đăng nhập**: khách xem được 2 bài học đầu mỗi phần, làm 5 câu Writing và bài đọc đầu tiên của
   mỗi phần Reading (`exams/trial`); sao chỉ lưu trên máy.
   Đổi số lượng ở `window.TRIAL` trong `public/js/lessons.js` / `lessons-reading.js` rồi chạy lại `seed.js`.

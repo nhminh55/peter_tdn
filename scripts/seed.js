@@ -322,6 +322,81 @@ function buildPassageDocs(bank, lessons, trial, orderFrom, bookLessons = {}) {
   return { passageDocs, questionDocs, answerDocs, examDocs, trialQuestionIds, trialPassageIds, errors };
 }
 
+/*
+ * Listening: bài nghe có file mp3 (scripts/source/listening.js, window.LISTENING_BANK; chỉ để trên máy).
+ *   { id: 'll-01', n: 1, title, audio: 'l01.mp3' (public/audio/), intro, example: { text, answer },
+ *     transcript: [đoạn lời thoại] (hiện sau khi chấm, tô chỗ chứa đáp án),
+ *     questions: [{ num, prompt (có "______"), answers, maxWords, topics, evidence, vi, en }] }
+ *   Câu trắc nghiệm (bài nghe chọn A/B/C): { num, type: 'mc', prompt, options: [3–4], answer: 'A'…, topics, evidence, vi, en }.
+ * Câu điền từ là reading_gap của mảng 'listening', chấm như câu tự gõ của Reading; câu trắc nghiệm là reading_mc.
+ */
+// listening-1.js, listening-2.js… (bài nghe) và listening-ref.js (câu nghe tham khảo của đề thi).
+function listeningFilesIn(dir) {
+  return fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => /^listening(-[\w]+)?\.js$/.test(f)).sort().map(f => path.join(dir, f)) : [];
+}
+
+function buildListeningDocs(bank, lessons, trial, orderFrom) {
+  const errors = [];
+  const passageDocs = [], questionDocs = [], answerDocs = [], examDocs = [];
+  const trialQuestionIds = [], trialPassageIds = [];
+  const topicIds = new Set((lessons || []).map(l => l.id));
+  let order = orderFrom;
+  bank.forEach((p, i) => {
+    if (!/^ll-\d{2}$/.test(p.id || '')) errors.push(`${p.id}: listening id must look like ll-01`);
+    if (!/^[a-z0-9-]+\.mp3$/.test(p.audio || '')) errors.push(`${p.id}: audio must be a file name like l01.mp3`);
+    if (!p.title || !p.intro) errors.push(`${p.id}: needs title and intro`);
+    const text = (p.transcript || []).join('\n');
+    if (!text) errors.push(`${p.id}: needs a transcript`);
+    const questionIds = [];
+    (p.questions || []).forEach(q => {
+      const id = `${p.id}-${q.num}`;
+      questionIds.push(id);
+      const mc = q.type === 'mc';
+      if (mc) {
+        if (!q.prompt) errors.push(`${id}: missing prompt`);
+        if (!Array.isArray(q.options) || q.options.length < 3 || q.options.length > 4) errors.push(`${id}: needs 3–4 options`);
+        else if (!LETTERS.slice(0, q.options.length).includes(q.answer)) errors.push(`${id}: answer ${q.answer} is not a valid letter`);
+      } else if (!q.prompt || !q.prompt.includes('______')) errors.push(`${id}: prompt needs a ______ blank`);
+      if (mc) { /* đáp án là chữ cái, đã kiểm tra ở trên */ }
+      else if (!Array.isArray(q.answers) || !q.answers.length) errors.push(`${id}: needs answers`);
+      else {
+        const key = { kind: 'gap', answers: q.answers, maxWords: q.maxWords };
+        if (!readingGrader.grade(key, q.answers[0]).correct) errors.push(`${id}: first answer is rejected by its own key`);
+        if (q.maxWords && q.answers.some(a => readingGrader.words(a).length > q.maxWords)) errors.push(`${id}: an answer is longer than ${q.maxWords} words`);
+      }
+      (q.topics || []).forEach(t => { if (!topicIds.has(t)) errors.push(`${id}: unknown topic ${t}`); });
+      if (!(q.topics || []).length) errors.push(`${id}: no topics`);
+      (q.evidence || []).forEach(e => { if (!text.includes(e)) errors.push(`${id}: evidence not in transcript: ${e}`); });
+      if (!(q.vi || []).length || (q.vi || []).length !== (q.en || []).length) errors.push(`${id}: vi/en explanations missing or differ in length`);
+      const data = { type: mc ? 'reading_mc' : 'reading_gap', part: 'listening', passage: p.id, num: q.num, prompt: q.prompt, topics: q.topics || [], source: [{ kind: 'listen', n: p.n }], order: order++ };
+      if (q.maxWords) data.maxWords = q.maxWords;
+      if (mc) data.options = q.options;
+      questionDocs.push({ id, data });
+      const explanation = { vi: q.vi || [], en: q.en || [] };
+      answerDocs.push({ id, data: mc
+        ? { choice: true, answer: q.answer, evidence: q.evidence || [], explanation }
+        : { kind: 'gap', answer: q.answers[0], answers: q.answers, maxWords: q.maxWords || null, evidence: q.evidence || [], explanation } });
+    });
+    passageDocs.push({
+      id: p.id,
+      data: {
+        part: 'listening', title: p.title, genre: 'transcript', audio: p.audio, intro: p.intro, example: p.example || null,
+        paragraphs: p.transcript || [], source: { kind: 'listen', n: p.n }, questionIds, order: i
+      }
+    });
+    examDocs.push({ id: p.id, data: { kind: 'test', part: 'listening', group: 'listen', passageId: p.id, questionIds, title: { vi: `Bài nghe ${p.n}`, en: `Listening ${p.n}` }, order: 5000 + p.n } });
+  });
+  if (questionDocs.length) {
+    examDocs.push({ id: 'll-all', data: { kind: 'all', part: 'listening', questionIds: questionDocs.map(q => q.id), title: { vi: 'Tất cả các bài nghe', en: 'All listening tests' }, order: 4 } });
+  }
+  (lessons || []).forEach((l, i) => {
+    const questionIds = questionDocs.filter(q => q.data.topics.includes(l.id)).map(q => q.id);
+    if (questionIds.length) examDocs.push({ id: `topic-${l.id}`, data: { kind: 'topic', part: 'listening', topic: l.id, questionIds, title: { vi: l.title }, order: 1900 + i } });
+  });
+  passageDocs.slice(0, trial.passages || 0).forEach(d => { trialPassageIds.push(d.id); trialQuestionIds.push(...d.data.questionIds); });
+  return { passageDocs, questionDocs, answerDocs, examDocs, trialQuestionIds, trialPassageIds, errors };
+}
+
 function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, reading = null) {
   const lessonTitles = Object.fromEntries(lessons.map(l => [l.id, l.title]));
   const errors = [];
@@ -430,6 +505,7 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, rea
   if (reading) {
     const parts = [buildReadingDocs(reading.passages || [], reading.lessons, trial, questions.length)];
     if ((reading.bank || []).length) parts.push(buildPassageDocs(reading.bank, reading.lessons.passage, trial, questions.length + 10000, reading.lessons));
+    if ((reading.listening || []).length) parts.push(buildListeningDocs(reading.listening, reading.listeningLessons, trial, questions.length + 20000));
     parts.forEach(r => {
       r.questionDocs.forEach(d => { if (ids.has(d.id)) errors.push(`Duplicate id ${d.id}`); ids.add(d.id); });
       r.examDocs.forEach(d => { if (examDocs.some(e => e.id === d.id)) errors.push(`Duplicate exam ${d.id}`); });
@@ -451,7 +527,7 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, rea
       });
     });
   }
-  examDocs.push(...buildMockDocs(questions, examDocs));
+  examDocs.push(...buildMockDocs(questions, examDocs, (reading && reading.listeningRef) || {}));
   examDocs.push({
     id: 'trial',
     data: { kind: 'trial', questionIds: trialIds, passageIds: trialPassageIds, title: { vi: 'Làm thử', en: 'Free trial' }, order: 2000 }
@@ -515,7 +591,7 @@ function mockPoints(src, readingIds, writingIds) {
   const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
   return { reading, writing, missing, total: sum(reading) + sum(writing) + missing.reduce((a, m) => a + m.pts, 0) };
 }
-function buildMockDocs(questions, examDocs) {
+function buildMockDocs(questions, examDocs, listeningRef = {}) {
   const docs = [];
   examDocs.filter(e => e.data.part === 'passage' && e.data.kind === 'test' && ['exam', 'sh'].includes(e.data.group)).forEach(e => {
     const src = e.data.src;
@@ -528,6 +604,7 @@ function buildMockDocs(questions, examDocs) {
         kind: 'mock', group: src.kind, src, title: sourceTitle(src), listening: 4,
         passageIds: e.data.passageIds, readingIds: e.data.questionIds, writingIds,
         points: mockPoints(src, e.data.questionIds, writingIds),
+        listeningRef: listeningRef[src.kind === 'exam' ? `exam-${src.year}` : `sh-${pad(src.test)}`] || null,
         questionIds: e.data.questionIds.concat(writingIds),
         order: 6000 + SOURCE_GROUPS[src.kind] * 100 + (src.kind === 'exam' ? src.year - 2000 : src.test)
       }
@@ -572,16 +649,21 @@ async function main() {
   const hasReading = fs.existsSync(args.reading);
   const bankDir = path.join(__dirname, 'source', 'passages');
   const extraFiles = writingExtraFiles();
+  const listeningFiles = listeningFilesIn(path.join(__dirname, 'source'));
   const bankFiles = fs.existsSync(bankDir) ? fs.readdirSync(bankDir).filter(f => f.endsWith('.js')).sort().map(f => path.join(bankDir, f)) : [];
   const win = loadBrowserGlobals([args.source].concat(extraFiles, [path.join(ROOT, 'public', 'js', 'lessons.js'), path.join(ROOT, 'public', 'js', 'lessons-reading.js')],
-    hasReading ? [args.reading] : [], bankFiles));
+    hasReading ? [args.reading] : [], bankFiles, [path.join(ROOT, 'public', 'js', 'lessons-listening.js')], listeningFiles));
   const questions = win.WRITING_QUESTIONS;
   const lessons = win.LESSONS;
   if (!Array.isArray(questions) || !questions.length) throw new Error('WRITING_QUESTIONS not found in ' + args.source);
   addWritingSources(questions, win.WRITING_EXTRA_SRC);
   if (!hasReading) console.warn(`No reading bank at ${path.relative(ROOT, args.reading)} — seeding Writing only.`);
   const bank = win.READING_PASSAGE_BANK || [];
-  const reading = hasReading || bank.length ? { passages: win.READING_PASSAGES || [], bank, lessons: win.READING_LESSONS } : null;
+  const listening = win.LISTENING_BANK || [];
+  const reading = hasReading || bank.length ? {
+    passages: win.READING_PASSAGES || [], bank, lessons: win.READING_LESSONS,
+    listening, listeningLessons: win.LISTENING_LESSONS || [], listeningRef: win.LISTENING_REF || {}
+  } : null;
 
   const { questionDocs, answerDocs, examDocs, passageDocs, errors } = buildDocs(questions, lessons, win.TRIAL, reading);
   console.log(`Loaded ${questions.length} writing questions from ${path.relative(ROOT, args.source)}`);
@@ -613,4 +695,4 @@ if (require.main === module) {
   main().catch(err => { console.error(err.message || err); process.exit(1); });
 }
 
-module.exports = { buildDocs, buildReadingDocs, buildPassageDocs, loadBrowserGlobals, writingExtraFiles, addWritingSources, EXAM_ORDER };
+module.exports = { buildDocs, buildReadingDocs, buildPassageDocs, buildListeningDocs, listeningFilesIn, loadBrowserGlobals, writingExtraFiles, addWritingSources, EXAM_ORDER };
