@@ -7,7 +7,7 @@ Chạy hoàn toàn trên **gói Spark (miễn phí)** của Firebase: Hosting + 
 ## Tính năng
 
 - **Writing — viết câu từ gợi ý** (66 câu từ 60 đề của bộ đề 8020 Education, Quyển 1 & 2)
-  - **Learn**: 16 bài ngữ pháp có ví dụ lấy từ đề thi.
+  - **Learn**: 17 bài ngữ pháp có ví dụ lấy từ đề thi (bài cuối: biến đổi từ loại).
   - **Practice**: làm từng câu, bấm Check để chấm và xem giải thích. Đúng 1 câu +1 ★, đúng 5 câu liên tiếp thưởng thêm +5 ★.
   - Chấm linh hoạt theo mẫu câu: chấp nhận mọi cách viết đúng ngữ pháp, đúng nghĩa.
 - **Reading — đọc hiểu**, chia 3 phần, mỗi phần có Learn + Practice như Writing:

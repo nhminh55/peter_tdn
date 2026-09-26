@@ -472,5 +472,51 @@ Children wash <b>their</b> hands · She brushes <b>her</b> teeth · He does <b>h
 <div class="tip"><b>Same tense</b>: when <i>and</i> joins two actions, both verbs use the same tense — went … <b>and</b> bought.</div>
 <div class="tip"><b>Commas</b>: when an <i>If / After / When</i> clause comes first, put a comma before the second part.<br>If it rains tomorrow<b>,</b> we will stay at home.</div>
 <div class="warn">The cues may <b>not include</b> the linking word — you must add it: My dream house / have / swimming pool / big garden → … a swimming pool <b>and</b> a big garden.</div>`
+  },
+  'word-forms': {
+    title: 'Word forms',
+    short: 'decide → decision, usual → usually, danger → dangerous',
+    body: `
+<p>The cues often give a word in its <b>base form</b>. Look at <b>where it goes in the sentence</b>, then change it to the right <b>word class</b>: noun, adjective or adverb. The 2026 exam has three of these.</p>
+<table class="tbl">
+  <tr><th>Cue</th><th>In the sentence</th><th>Test</th></tr>
+  <tr><td>quick / <b>decide</b></td><td>make a quick <b>decision</b></td><td>Exam 2026 (example)</td></tr>
+  <tr><td>save / <b>electric</b></td><td>to save <b>electricity</b></td><td>Exam 2026</td></tr>
+  <tr><td><b>usual</b> / go / jog</td><td>Lan <b>usually</b> went jogging</td><td>Exam 2026</td></tr>
+  <tr><td><b>Lucky</b> / enough</td><td><b>Luckily</b> enough, no-one was injured</td><td>Exam 2024</td></tr>
+  <tr><td>act / <b>kind</b></td><td>acts <b>kindly</b> to the students</td><td>Exam 2024 (example)</td></tr>
+  <tr><td>be / <b>danger</b></td><td>it's <b>dangerous</b> for children</td><td>Stemhouse test 10</td></tr>
+  <tr><td>speak / <b>fluent</b> / <b>clear</b></td><td>speaking English <b>fluently</b> and <b>clearly</b></td><td>Stemhouse test 2</td></tr>
+  <tr><td>play / <b>very good</b></td><td>plays badminton <b>very well</b></td><td>Stemhouse test 8</td></tr>
+  <tr><td><b>Vietnam</b> / people</td><td><b>Vietnamese</b> people</td><td>Stemhouse test 6</td></tr>
+</table>
+
+<h3>Step 1: which word class does the slot need?</h3>
+<table class="tbl">
+  <tr><th>Place in the sentence</th><th>Needs</th><th>Example</th></tr>
+  <tr><td>after <b>a / an / the / my…</b>, after an adjective, after a verb (as its object)</td><td><b>noun</b></td><td>a quick <b>decision</b> · save <b>electricity</b></td></tr>
+  <tr><td>after <b>be / feel / look / become</b>, or before a noun</td><td><b>adjective</b></td><td>it is <b>dangerous</b> · <b>Vietnamese</b> people</td></tr>
+  <tr><td>describing a <b>verb</b> (how?)</td><td><b>adverb</b></td><td>acts <b>kindly</b> · speaks <b>fluently</b></td></tr>
+  <tr><td>before a main verb, saying how often</td><td><b>adverb</b></td><td>Lan <b>usually</b> went…</td></tr>
+  <tr><td>at the start, commenting on the whole sentence</td><td><b>adverb</b></td><td><b>Luckily</b>, … · <b>Sadly</b>, …</td></tr>
+</table>
+
+<h3>Step 2: add the ending</h3>
+<div class="formula">
+  <div><span class="tag">Noun</span> -tion / -sion: decide → deci<b>sion</b>, invite → invita<b>tion</b>, pollute → pollu<b>tion</b></div>
+  <div><span class="tag">Noun</span> -ity: electric → electric<b>ity</b>, able → abil<b>ity</b> · -ment: develop → develop<b>ment</b> · -ness: kind → kind<b>ness</b>, happy → happi<b>ness</b></div>
+  <div><span class="tag">Adjective</span> -ous: danger → danger<b>ous</b> · -ful: care → care<b>ful</b>, beauty → beauti<b>ful</b> · -y: sun → sun<b>ny</b>, rain → rain<b>y</b></div>
+  <div><span class="tag">Adjective</span> nationality: Vietnam → Vietnam<b>ese</b>, Japan → Japan<b>ese</b>, Italy → Ital<b>ian</b>, England → <b>English</b></div>
+  <div><span class="tag">Adverb</span> adjective + <b>-ly</b>: quick → quick<b>ly</b>, kind → kind<b>ly</b>, usual → usual<b>ly</b>, fluent → fluent<b>ly</b></div>
+</div>
+<h3>Spelling with -ly</h3>
+<ul>
+  <li>-y → <b>-ily</b>: lucky → luck<b>ily</b>, happy → happ<b>ily</b>, easy → eas<b>ily</b>.</li>
+  <li>-le → <b>-ly</b>: gentle → gent<b>ly</b>, simple → simp<b>ly</b>.</li>
+  <li>-ic → <b>-ically</b>: basic → basic<b>ally</b>.</li>
+</ul>
+<div class="warn"><b>Irregular adverbs</b>: good → <b>well</b> (plays <s>very good</s> → plays <b>very well</b>); fast → <b>fast</b>, hard → <b>hard</b>, late → <b>late</b>.
+  <p><i>hardly</i> means "almost not", not "with effort": He works <b>hard</b>.</p></div>
+<div class="tip"><b>Tip</b>: read the sentence again and ask "is this slot <i>a thing</i> (noun), <i>what it is like</i> (adjective) or <i>how it is done</i> (adverb)?". Then check the spelling of the ending — one wrong letter loses the mark.</div>`
   }
 };

@@ -505,6 +505,54 @@ Children wash <b>their</b> hands · She brushes <b>her</b> teeth · He does <b>h
 <div class="tip"><b>Hai vế cùng thì</b>: khi nối hai hành động bằng <i>and</i>, cả hai động từ chia cùng thì — went … <b>and</b> bought.</div>
 <div class="tip"><b>Dấu phẩy</b>: khi mệnh đề <i>If / After / When</i> đứng đầu câu, đặt dấu phẩy trước vế sau.<br>If it rains tomorrow<b>,</b> we will stay at home.</div>
 <div class="warn">Gợi ý có thể <b>không có sẵn</b> liên từ, bạn phải tự thêm: My dream house / have / swimming pool / big garden → … a swimming pool <b>and</b> a big garden.</div>`
+  },
+  {
+    id: 'word-forms',
+    title: 'Biến đổi từ loại',
+    icon: '🔀',
+    short: 'decide → decision, usual → usually, danger → dangerous',
+    body: `
+<p>Gợi ý trong đề thường cho từ ở <b>dạng gốc</b>. Bạn phải xem từ đó đứng ở <b>chỗ nào trong câu</b> rồi đổi sang đúng <b>loại từ</b>: danh từ, tính từ hay trạng từ. Đề thi 2026 có tới 3 chỗ như vậy.</p>
+<table class="tbl">
+  <tr><th>Gợi ý</th><th>Trong câu</th><th>Đề</th></tr>
+  <tr><td>quick / <b>decide</b></td><td>make a quick <b>decision</b></td><td>Đề thi 2026 (ví dụ)</td></tr>
+  <tr><td>save / <b>electric</b></td><td>to save <b>electricity</b></td><td>Đề thi 2026</td></tr>
+  <tr><td><b>usual</b> / go / jog</td><td>Lan <b>usually</b> went jogging</td><td>Đề thi 2026</td></tr>
+  <tr><td><b>Lucky</b> / enough</td><td><b>Luckily</b> enough, no-one was injured</td><td>Đề thi 2024</td></tr>
+  <tr><td>act / <b>kind</b></td><td>acts <b>kindly</b> to the students</td><td>Đề thi 2024 (ví dụ)</td></tr>
+  <tr><td>be / <b>danger</b></td><td>it's <b>dangerous</b> for children</td><td>Stemhouse đề 10</td></tr>
+  <tr><td>speak / <b>fluent</b> / <b>clear</b></td><td>speaking English <b>fluently</b> and <b>clearly</b></td><td>Stemhouse đề 2</td></tr>
+  <tr><td>play / <b>very good</b></td><td>plays badminton <b>very well</b></td><td>Stemhouse đề 8</td></tr>
+  <tr><td><b>Vietnam</b> / people</td><td><b>Vietnamese</b> people</td><td>Stemhouse đề 6</td></tr>
+</table>
+
+<h3>Bước 1: chỗ trống cần loại từ nào?</h3>
+<table class="tbl">
+  <tr><th>Vị trí trong câu</th><th>Cần</th><th>Ví dụ</th></tr>
+  <tr><td>sau <b>a / an / the / my…</b>, sau tính từ, sau động từ (làm tân ngữ)</td><td><b>danh từ</b></td><td>a quick <b>decision</b> · save <b>electricity</b></td></tr>
+  <tr><td>sau <b>be / feel / look / become</b>, hoặc đứng trước danh từ</td><td><b>tính từ</b></td><td>it is <b>dangerous</b> · <b>Vietnamese</b> people</td></tr>
+  <tr><td>bổ nghĩa cho <b>động từ</b> (làm thế nào?)</td><td><b>trạng từ</b></td><td>acts <b>kindly</b> · speaks <b>fluently</b></td></tr>
+  <tr><td>trước động từ thường, chỉ tần suất</td><td><b>trạng từ</b></td><td>Lan <b>usually</b> went…</td></tr>
+  <tr><td>đầu câu, nói lên cảm nghĩ về cả câu</td><td><b>trạng từ</b></td><td><b>Luckily</b>, … · <b>Sadly</b>, …</td></tr>
+</table>
+
+<h3>Bước 2: thêm đuôi</h3>
+<div class="formula">
+  <div><span class="tag">Danh từ</span> -tion / -sion: decide → deci<b>sion</b>, invite → invita<b>tion</b>, pollute → pollu<b>tion</b></div>
+  <div><span class="tag">Danh từ</span> -ity: electric → electric<b>ity</b>, able → abil<b>ity</b> · -ment: develop → develop<b>ment</b> · -ness: kind → kind<b>ness</b>, happy → happi<b>ness</b></div>
+  <div><span class="tag">Tính từ</span> -ous: danger → danger<b>ous</b> · -ful: care → care<b>ful</b>, beauty → beauti<b>ful</b> · -y: sun → sun<b>ny</b>, rain → rain<b>y</b></div>
+  <div><span class="tag">Tính từ</span> quốc tịch: Vietnam → Vietnam<b>ese</b>, Japan → Japan<b>ese</b>, Italy → Ital<b>ian</b>, England → <b>English</b></div>
+  <div><span class="tag">Trạng từ</span> tính từ + <b>-ly</b>: quick → quick<b>ly</b>, kind → kind<b>ly</b>, usual → usual<b>ly</b>, fluent → fluent<b>ly</b></div>
+</div>
+<h3>Chú ý chính tả khi thêm -ly</h3>
+<ul>
+  <li>-y → <b>-ily</b>: lucky → luck<b>ily</b>, happy → happ<b>ily</b>, easy → eas<b>ily</b>.</li>
+  <li>-le → <b>-ly</b>: gentle → gent<b>ly</b>, simple → simp<b>ly</b>.</li>
+  <li>-ic → <b>-ically</b>: basic → basic<b>ally</b>.</li>
+</ul>
+<div class="warn"><b>Trạng từ bất quy tắc</b>: good → <b>well</b> (plays <s>very good</s> → plays <b>very well</b>); fast → <b>fast</b>, hard → <b>hard</b>, late → <b>late</b>.
+  <p><i>hardly</i> nghĩa là "hầu như không", không phải "chăm chỉ": He works <b>hard</b> (anh ấy làm chăm chỉ).</p></div>
+<div class="tip"><b>Mẹo</b>: đọc lại câu, tự hỏi "chỗ này là <i>cái gì</i> (danh từ), <i>như thế nào</i> (tính từ) hay <i>làm ra sao</i> (trạng từ)?". Viết xong kiểm tra chính tả đuôi từ, vì sai một chữ cũng mất điểm.</div>`
   }
 ];
 
