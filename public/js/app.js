@@ -17,7 +17,7 @@ const READING_LESSONS = window.READING_LESSONS;
 const TRIAL = window.TRIAL;
 const { STREAK_BONUS_EVERY, STREAK_BONUS_STARS } = window.Scoring;
 const MAX_WORDS = 15;
-const APP_VERSION = '1.3.2';
+const APP_VERSION = '1.3.3';
 // Số câu làm thử: TRIAL.questions câu Writing + TRIAL.passages bài đọc đầu tiên của mỗi phần Reading
 // (thư 4 câu, đoạn văn 4 câu, bài đọc dài: đề thật 2023 có 6 câu).
 const TRIAL_QUESTIONS = TRIAL.questions + (TRIAL.passages || 0) * (4 + 4 + 6);
@@ -59,7 +59,7 @@ function localDefaults() {
   // daily: bộ câu "Luyện mỗi ngày" đã giao hôm nay theo mảng { [mảng]: { uid, date, ids } }
   // pool: nguồn câu Writing khi luyện — 'book' (trong sách) | 'gen' (tạo bởi AI) | 'all'
   // mock: lượt thi thử đang làm · mockResults: kết quả các lần thi thử trên máy này
-  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10, pool: 'all', sound: true, music: true }, sessions: {}, guestProfile: null, daily: {}, mock: null, mockResults: [] };
+  return { settings: { strict: false, order: 'random', lang: 'vi', guest: false, dailyN: 10, pool: 'book', sound: true, music: true }, sessions: {}, guestProfile: null, daily: {}, mock: null, mockResults: [] };
 }
 
 let storageOk = true;
@@ -73,7 +73,8 @@ function loadLocal() {
     Object.entries(sessions).forEach(([m, s]) => { if (s && !s.mod) s.mod = m; });
     const daily = data.daily && data.daily.uid ? { writing: data.daily } : data.daily || {};
     return {
-      settings: Object.assign(localDefaults().settings, data.settings),
+      // Nguồn câu Writing luôn về 'book' (sách & đề thi) mỗi lần mở app; chọn AI chỉ có hiệu lực trong lần dùng đó.
+      settings: Object.assign(localDefaults().settings, data.settings, { pool: 'book' }),
       sessions,
       guestProfile: data.guestProfile || null,
       daily,
@@ -713,6 +714,9 @@ function startSession(m, mode, value, poolOverride) {
   else { mode = 'all'; examId = mod.allExam; ids = (EXAMS[examId] || {}).questionIds || modQuestions(m).map(q => q.id); }
   ids = ids.filter(id => Q_BY_ID[id] && modOf(Q_BY_ID[id]) === m && inPool(Q_BY_ID[id], p));
   if (!ids.length) return;
+  // Lượt có câu Writing do AI tạo: báo trước khi vào luyện.
+  const genCount = ids.filter(id => isGen(Q_BY_ID[id])).length;
+  if (genCount && !confirm(t('ai_warning', { n: genCount }))) return;
   if (guest) examId = 'trial';
   const random = local.settings.order === 'random' && mode !== 'exam' && mode !== 'daily';
   if (isReading(m)) ids = groupByPassage(ids, random);

@@ -18,11 +18,12 @@
  * Cách chạy (từ thư mục scripts/):
  *   npm install
  *   node seed.js --dry-run                         # chỉ kiểm tra dữ liệu, không ghi
+ *   (mặc định chỉ ghi tài liệu mới / đã đổi; thêm --all để ghi lại toàn bộ)
  *   GOOGLE_APPLICATION_CREDENTIALS=./service-account.json node seed.js --project <project-id>
  *   FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node seed.js --project demo-tdn   # ghi vào emulator
  *
  * Admin SDK + service account dùng được trên gói Spark (không cần Blaze).
- * Chạy lại nhiều lần vẫn an toàn: mỗi document được ghi đè bằng dữ liệu mới nhất.
+ * Chạy lại nhiều lần vẫn an toàn: document đã đổi được ghi đè bằng dữ liệu mới nhất, document không đổi thì bỏ qua.
  */
 'use strict';
 
@@ -36,11 +37,12 @@ const ROOT = path.resolve(__dirname, '..');
 
 function parseArgs(argv) {
   const args = {
-    dryRun: false, project: process.env.GCLOUD_PROJECT || null,
+    dryRun: false, all: false, project: process.env.GCLOUD_PROJECT || null,
     source: path.join(__dirname, 'source', 'data.js'), reading: path.join(__dirname, 'source', 'reading.js')
   };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--dry-run') args.dryRun = true;
+    else if (argv[i] === '--all') args.all = true;
     else if (argv[i] === '--project') args.project = argv[++i];
     else if (argv[i] === '--source') args.source = path.resolve(argv[++i]);
     else if (argv[i] === '--reading') args.reading = path.resolve(argv[++i]);
@@ -538,14 +540,31 @@ function buildMockDocs(questions, examDocs) {
   return docs;
 }
 
-async function write(db, collection, docs) {
+// So sánh không phụ thuộc thứ tự khoá (Firestore trả map theo thứ tự khác).
+function canonical(v) {
+  if (Array.isArray(v)) return v.map(canonical);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.keys(v).sort().map(k => [k, canonical(v[k])]));
+  return v;
+}
+const sameData = (a, b) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
+
+/*
+ * Chỉ ghi tài liệu mới hoặc đã đổi (gói Spark giới hạn ~20.000 lượt ghi / ngày; ghi lại cả kho tốn ~2.300).
+ * Đọc bản đang có trên Firestore để so (lượt đọc có hạn mức riêng, rộng hơn). --all: ghi lại toàn bộ.
+ */
+async function write(db, collection, docs, all) {
+  let changed = docs;
+  if (!all) {
+    const current = new Map((await db.collection(collection).get()).docs.map(d => [d.id, d.data()]));
+    changed = docs.filter(d => !current.has(d.id) || !sameData(current.get(d.id), d.data));
+  }
   // Mỗi batch tối đa 500 thao tác.
-  for (let i = 0; i < docs.length; i += 400) {
+  for (let i = 0; i < changed.length; i += 400) {
     const batch = db.batch();
-    docs.slice(i, i + 400).forEach(d => batch.set(db.collection(collection).doc(d.id), d.data));
+    changed.slice(i, i + 400).forEach(d => batch.set(db.collection(collection).doc(d.id), d.data));
     await batch.commit();
   }
-  console.log(`  ✓ ${collection}: ${docs.length} documents`);
+  console.log(`  ✓ ${collection}: ${changed.length} written / ${docs.length} documents`);
 }
 
 async function main() {
@@ -583,10 +602,10 @@ async function main() {
   const db = getFirestore();
 
   console.log(`Writing to ${usingEmulator ? 'emulator ' + process.env.FIRESTORE_EMULATOR_HOST : 'project ' + args.project}…`);
-  await write(db, 'questions', questionDocs);
-  await write(db, 'answers', answerDocs);
-  await write(db, 'exams', examDocs);
-  if (passageDocs.length) await write(db, 'passages', passageDocs);
+  await write(db, 'questions', questionDocs, args.all);
+  await write(db, 'answers', answerDocs, args.all);
+  await write(db, 'exams', examDocs, args.all);
+  if (passageDocs.length) await write(db, 'passages', passageDocs, args.all);
   console.log('Done.');
 }
 
