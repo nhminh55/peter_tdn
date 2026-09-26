@@ -173,7 +173,8 @@ const LETTERS = ['A', 'B', 'C', 'D'];
 function sourceTitle(src) {
   if (src.kind === 'exam') return { vi: `Đề thi ${src.year}`, en: `Exam ${src.year}` };
   if (src.kind === 'sh') return { vi: `Stemhouse — Đề ${src.test}`, en: `Stemhouse — Test ${src.test}` };
-  return { vi: `Stemhouse — Tuyển tập, bài ${src.n}`, en: `Stemhouse — Collection, passage ${src.n}` };
+  if (src.n) return { vi: `Stemhouse — Tuyển tập, bài ${src.n}`, en: `Stemhouse — Collection, passage ${src.n}` };
+  return { vi: 'Stemhouse — Tuyển tập', en: 'Stemhouse — Collection' };
 }
 
 function buildPassageDocs(bank, lessons, trial, orderFrom) {
@@ -275,7 +276,7 @@ function buildPassageDocs(bank, lessons, trial, orderFrom) {
       id,
       data: {
         kind: 'test', part: 'passage', group: e.src.kind, passageIds: e.passageIds, questionIds: e.questionIds,
-        title: sourceTitle(e.src), order: 4000 + SOURCE_GROUPS[e.src.kind] * 100 + i
+        title: sourceTitle(e.src), order: 4000 + SOURCE_GROUPS[e.src.kind] * 100 + (e.src.kind === 'exam' ? e.src.year - 2000 : i)
       }
     });
   });
@@ -329,8 +330,9 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, rea
         type: 'writing_cues',
         cues: q.cues,
         topics: q.topics,
-        // Firestore không lưu được mảng lồng nhau → [{book, test}]; câu tự soạn: 'gen' → {gen: true}
-        source: q.src.map(s => (s === 'gen' ? { gen: true } : { book: s[0], test: s[1] })),
+        // Firestore không lưu được mảng lồng nhau → [{book, test}]; câu tự soạn: 'gen' → {gen: true};
+        // đề thật / Stemhouse (writing-extra*.js): { kind: 'exam', year } | { kind: 'sh', test } | { kind: 'shb' }
+        source: q.src.map(s => (s === 'gen' ? { gen: true } : Array.isArray(s) ? { book: s[0], test: s[1] } : s)),
         order
       }
     });
@@ -355,6 +357,25 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, rea
       }
     });
   }));
+
+  // Đề thật / Stemhouse (câu có src dạng object): mỗi đề một exam 'w-e2023', 'w-sh01', 'w-shb' để luyện theo đề.
+  const extraExams = new Map();
+  questions.forEach(q => q.src.forEach(s => {
+    if (!s || typeof s !== 'object' || Array.isArray(s)) return;
+    const id = s.kind === 'exam' ? `w-e${s.year}` : s.kind === 'sh' ? `w-sh${pad(s.test)}` : 'w-shb';
+    if (!extraExams.has(id)) extraExams.set(id, { src: s, questionIds: [] });
+    extraExams.get(id).questionIds.push(q.id);
+  }));
+  [...extraExams.entries()].forEach(([id, e]) => {
+    const rank = e.src.kind === 'exam' ? e.src.year - 2000 : e.src.kind === 'sh' ? e.src.test : 0;
+    examDocs.push({
+      id,
+      data: {
+        kind: 'test', group: e.src.kind, questionIds: e.questionIds, title: sourceTitle(e.src),
+        order: 500 + SOURCE_GROUPS[e.src.kind] * 100 + rank
+      }
+    });
+  });
 
   examDocs.push({
     id: 'all',
@@ -400,6 +421,24 @@ function buildDocs(questions, lessons, trial = { lessons: 2, questions: 5 }, rea
   return { questionDocs, answerDocs, examDocs, passageDocs, errors };
 }
 
+/*
+ * Câu Writing lấy thêm từ đề thật 2023–2026 và Stemhouse: scripts/source/writing-extra*.js (chỉ để trên máy).
+ * Mỗi file push thêm câu vào window.WRITING_QUESTIONS (cùng định dạng data.js, src là object nguồn mới) và có thể
+ * gắn thêm nguồn cho câu đã có (câu trùng): window.WRITING_EXTRA_SRC = { w06: [{ kind: 'exam', year: 2026 }] }.
+ */
+function writingExtraFiles() {
+  const dir = path.join(__dirname, 'source');
+  return fs.readdirSync(dir).filter(f => /^writing-extra.*\.js$/.test(f)).sort().map(f => path.join(dir, f));
+}
+
+function addWritingSources(questions, extra) {
+  Object.entries(extra || {}).forEach(([id, srcs]) => {
+    const q = questions.find(x => x.id === id);
+    if (!q) throw new Error(`WRITING_EXTRA_SRC: unknown question ${id}`);
+    q.src = q.src.filter(s => s !== 'gen').concat(srcs);
+  });
+}
+
 async function write(db, collection, docs) {
   // Mỗi batch tối đa 500 thao tác.
   for (let i = 0; i < docs.length; i += 400) {
@@ -414,12 +453,14 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const hasReading = fs.existsSync(args.reading);
   const bankDir = path.join(__dirname, 'source', 'passages');
+  const extraFiles = writingExtraFiles();
   const bankFiles = fs.existsSync(bankDir) ? fs.readdirSync(bankDir).filter(f => f.endsWith('.js')).sort().map(f => path.join(bankDir, f)) : [];
-  const win = loadBrowserGlobals([args.source, path.join(ROOT, 'public', 'js', 'lessons.js'), path.join(ROOT, 'public', 'js', 'lessons-reading.js')]
-    .concat(hasReading ? [args.reading] : [], bankFiles));
+  const win = loadBrowserGlobals([args.source].concat(extraFiles, [path.join(ROOT, 'public', 'js', 'lessons.js'), path.join(ROOT, 'public', 'js', 'lessons-reading.js')],
+    hasReading ? [args.reading] : [], bankFiles));
   const questions = win.WRITING_QUESTIONS;
   const lessons = win.LESSONS;
   if (!Array.isArray(questions) || !questions.length) throw new Error('WRITING_QUESTIONS not found in ' + args.source);
+  addWritingSources(questions, win.WRITING_EXTRA_SRC);
   if (!hasReading) console.warn(`No reading bank at ${path.relative(ROOT, args.reading)} — seeding Writing only.`);
   const bank = win.READING_PASSAGE_BANK || [];
   const reading = hasReading || bank.length ? { passages: win.READING_PASSAGES || [], bank, lessons: win.READING_LESSONS } : null;
@@ -454,4 +495,4 @@ if (require.main === module) {
   main().catch(err => { console.error(err.message || err); process.exit(1); });
 }
 
-module.exports = { buildDocs, buildReadingDocs, buildPassageDocs, loadBrowserGlobals, EXAM_ORDER };
+module.exports = { buildDocs, buildReadingDocs, buildPassageDocs, loadBrowserGlobals, writingExtraFiles, addWritingSources, EXAM_ORDER };

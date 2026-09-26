@@ -17,7 +17,7 @@ const READING_LESSONS = window.READING_LESSONS;
 const TRIAL = window.TRIAL;
 const { STREAK_BONUS_EVERY, STREAK_BONUS_STARS } = window.Scoring;
 const MAX_WORDS = 15;
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 // Số câu làm thử: TRIAL.questions câu Writing + TRIAL.passages bài đọc đầu tiên của mỗi phần Reading
 // (thư 4 câu, đoạn văn 4 câu, bài đọc dài: đề thật 2023 có 6 câu).
 const TRIAL_QUESTIONS = TRIAL.questions + (TRIAL.passages || 0) * (4 + 4 + 6);
@@ -180,7 +180,7 @@ function sessionLabel(s) {
   const k = s.kind || {};
   const from = k.pool && k.pool !== 'all' ? ` · ${t('pool_' + k.pool)}` : '';
   if (k.mode === 'topic') return t('label_topic', { t: topicTitle(k.value) }) + from;
-  if (k.mode === 'exam' && s.mod === 'passage') {
+  if (k.mode === 'exam' && (s.mod === 'passage' || k.value.startsWith('w-'))) {
     const e = EXAMS[k.value];
     return e ? (e.title[lang()] || e.title.vi) : k.value;
   }
@@ -591,9 +591,12 @@ function viewPracticeSetup(m) {
     return bindPracticeSetup(m);
   }
 
-  // Read a passage: đề thật, Stemhouse 10 đề, Stemhouse tuyển tập — value là id đề.
-  const passageExams = group => Object.values(EXAMS).filter(e => e.part === 'passage' && e.kind === 'test' && e.group === group)
-    .sort((a, b) => a.order - b.order);
+  // Read a passage và Writing: đề thật, Stemhouse 10 đề, Stemhouse tuyển tập — value là id đề.
+  const passageExams = group => Object.values(EXAMS).filter(e => e.kind === 'test' && e.group === group
+    && (m === 'passage' ? e.part === 'passage' : !e.part)).sort((a, b) => a.order - b.order);
+  const extraGroups = () => ['exam', 'sh', 'shb'].filter(g => passageExams(g).length).map(g => `<optgroup label="${t('exam_group_' + g)}">${
+    passageExams(g).map(e => `<option value="${e.id}">${esc(e.title[lang()] || e.title.vi)}</option>`).join('')
+  }</optgroup>`).join('');
   const examOptions = m === 'passage' ? ['exam', 'sh', 'shb'].filter(g => passageExams(g).length).map(g => `<optgroup label="${t('exam_group_' + g)}">${
     passageExams(g).map(e => {
       const titles = (e.passageIds || []).map(id => PASSAGES[id] && PASSAGES[id].title).filter(Boolean).join(' + ');
@@ -605,7 +608,7 @@ function viewPracticeSetup(m) {
         const p = PASSAGES[MODS[m].examPrefix + examKey(b, d)];
         return `<option value="${b}-${d}">${esc(t('exam', { b, d }) + (reading && p ? ` · ${p.title}` : ''))}</option>`;
       }).join('')
-  }</optgroup>`).join('');
+  }</optgroup>`).join('') + (m === 'writing' ? extraGroups() : '');
   const allCard = reading ? `
       <div class="setup-card">
         <h3>${t('setup_all_' + m)}</h3>
@@ -688,7 +691,7 @@ function startSession(m, mode, value, poolOverride) {
   const p = poolOverride || (!guest && ['all', 'topic', 'daily'].includes(mode || 'all') ? modPool(m) : 'all');
   if (mode === 'topic') { examId = 'topic-' + value; ids = (EXAMS[examId] || {}).questionIds || questionsForTopic(value).map(q => q.id); }
   else if (mode === 'exam') {
-    examId = m === 'passage' ? value : mod.examPrefix + examKey(...value.split('-'));
+    examId = m === 'passage' || value.startsWith('w-') ? value : mod.examPrefix + examKey(...value.split('-'));
     ids = (EXAMS[examId] || {}).questionIds || [];
   }
   else if (mode === 'wrong') { examId = mod.allExam; ids = wrongIds(m); }

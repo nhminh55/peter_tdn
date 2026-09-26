@@ -20,3 +20,6 @@ TODO_READING.md
 
 # Ngân hàng bài đọc dài (Read a passage), có đáp án
 scripts/source/passages/
+
+# Câu Writing lấy thêm từ đề thật / Stemhouse, có đáp án
+scripts/source/writing-extra*.js

@@ -10,7 +10,7 @@ const path = require('path');
 const Grader = require('../public/js/grader');
 const Scoring = require('../public/js/scoring');
 const ReadingGrader = require('../public/js/reading-grader');
-const { buildDocs, buildPassageDocs, loadBrowserGlobals } = require('../scripts/seed');
+const { buildDocs, buildPassageDocs, loadBrowserGlobals, writingExtraFiles, addWritingSources } = require('../scripts/seed');
 
 const ROOT = path.resolve(__dirname, '..');
 // Ngân hàng Reading (scripts/source/reading.js) chỉ có trên máy như data.js; thiếu thì bỏ qua các test Reading.
@@ -20,8 +20,11 @@ const hasReading = fs.existsSync(READING_FILE);
 const BANK_DIR = path.join(ROOT, 'scripts/source/passages');
 const bankFiles = fs.existsSync(BANK_DIR) ? fs.readdirSync(BANK_DIR).filter(f => f.endsWith('.js')).sort().map(f => path.join(BANK_DIR, f)) : [];
 const hasBank = hasReading && bankFiles.length > 0;
-const win = loadBrowserGlobals([path.join(ROOT, 'scripts/source/data.js'), path.join(ROOT, 'public/js/lessons.js'), path.join(ROOT, 'public/js/lessons-reading.js')]
-  .concat(hasReading ? [READING_FILE] : [], hasBank ? bankFiles : []));
+// Câu Writing lấy thêm từ đề thật / Stemhouse (scripts/source/writing-extra*.js), như seed.js.
+const win = loadBrowserGlobals([path.join(ROOT, 'scripts/source/data.js')].concat(writingExtraFiles(),
+  [path.join(ROOT, 'public/js/lessons.js'), path.join(ROOT, 'public/js/lessons-reading.js')],
+  hasReading ? [READING_FILE] : [], hasBank ? bankFiles : []));
+addWritingSources(win.WRITING_QUESTIONS, win.WRITING_EXTRA_SRC);
 const built = buildDocs(win.WRITING_QUESTIONS, win.LESSONS, win.TRIAL,
   hasReading ? { passages: win.READING_PASSAGES, bank: win.READING_PASSAGE_BANK || [], lessons: win.READING_LESSONS } : null);
 const KEYS = Object.fromEntries(built.answerDocs.map(d => [d.id, d.data]));
@@ -59,7 +62,9 @@ test('public questions carry no answer data', () => {
     }
     assert.deepStrictEqual(Object.keys(data).sort(), ['cues', 'order', 'source', 'topics', 'type'], id);
     assert.ok(Array.isArray(data.source) && data.source.length, id);
-    assert.ok(data.source.every(s => (s.gen === true && Object.keys(s).length === 1) || (typeof s.book === 'number' && typeof s.test === 'number')), id);
+    const srcOk = s => (s.gen === true && Object.keys(s).length === 1) || (typeof s.book === 'number' && typeof s.test === 'number')
+      || (s.kind === 'exam' && typeof s.year === 'number') || (s.kind === 'sh' && typeof s.test === 'number') || s.kind === 'shb';
+    assert.ok(data.source.every(srcOk), id);
   });
 });
 
@@ -217,7 +222,10 @@ test('no accept pattern allows meaning words that are not in the cues', () => {
   writingAnswers.forEach(({ id, data }) => {
     const cues = Grader.normalize(data.cues).split(' ');
     const words = new Set([data.answer].concat(Grader.compile(data).variants).flatMap(v => Grader.normalize(v).split(' ')));
-    BANNED.forEach(w => assert.ok(!words.has(w) || cues.includes(w), `${id}: "${w}"`));
+    // allowWords: đáp án chính thức cho phép thêm từ đó (vd. "(some) new clothes" của đề 2025).
+    const allow = (win.WRITING_QUESTIONS.find(q => q.id === id) || {}).allowWords || [];
+    const fromCue = w => cues.some(c => c.length >= 4 && w.startsWith(c));   // usual → usually
+    BANNED.forEach(w => assert.ok(!words.has(w) || cues.includes(w) || fromCue(w) || allow.includes(w), `${id}: "${w}"`));
   });
 });
 
