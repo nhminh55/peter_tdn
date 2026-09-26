@@ -442,6 +442,9 @@ select {
 .q-label { font-family: var(--font-head); font-weight: 800; color: var(--primary); font-size: 1.05rem; letter-spacing: .2px; }
 .q-label::before { content: '📝 '; }
 .q-src { font-size: .8rem; font-weight: 700; color: var(--muted); background: var(--surface-2); padding: 3px 12px; border-radius: 999px; }
+.q-rule { margin: -4px 0 14px; font-style: italic; color: var(--muted); }
+.q-rule b { color: var(--warn); font-style: normal; }
+.q-rule span { font-style: normal; font-size: .9em; }
 .cues { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 20px; }
 .cue {
   font-size: 1.3rem; font-weight: 900; padding: 6px 16px; border-radius: 14px;

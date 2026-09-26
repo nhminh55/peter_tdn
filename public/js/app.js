@@ -17,7 +17,7 @@ const READING_LESSONS = window.READING_LESSONS;
 const TRIAL = window.TRIAL;
 const { STREAK_BONUS_EVERY, STREAK_BONUS_STARS } = window.Scoring;
 const MAX_WORDS = 15;
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 // Số câu làm thử: TRIAL.questions câu Writing + TRIAL.passages bài đọc đầu tiên của mỗi phần Reading
 // (thư 4 câu, đoạn văn 4 câu, bài đọc dài: đề thật 2023 có 6 câu).
 const TRIAL_QUESTIONS = TRIAL.questions + (TRIAL.passages || 0) * (4 + 4 + 6);
@@ -792,6 +792,7 @@ function viewWritingRun(s, q) {
         <span class="q-label">${t('q_label')}</span>
         <span class="q-src">${sourceLabel(q.source)}</span>
       </div>
+      <p class="q-rule">${t('q_rule')}</p>
       <div class="cues">${cuesHtml(q.cues)}</div>
       <textarea id="answer" rows="2" placeholder="${t('placeholder')}" spellcheck="false" autocomplete="off" autocapitalize="off" ${pending ? 'readonly' : ''}>${pending ? esc(pending.result.userAnswer) : ''}</textarea>
       <div class="q-meta">
